@@ -6,11 +6,11 @@ const MyProfile = () => {
 
 const [userData, setUserData] = useState({
   name: "Melaku Azene",
-  image: assets.myprofile,
+  image: assets.profile_pic,
   email: "melakuazene623@gmail.com",
   phone: "+251918219856",
   address: {
-    line1: "Addis Abeba",    
+    line1: "Addis Abeba",
   },
   gender: "Male",
   dob: "2002-04-07",

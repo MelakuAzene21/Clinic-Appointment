@@ -30,8 +30,8 @@ const Footer = () => {
  <div>
             <p className='text-xl font-medium mb-5 '>GET IN TOUCH</p>
             <ul className='flex flex-col gap-2 text-gray-600'>
-                <li>+91 8431455095</li>
-                <li>imrohitsampannavar@gmail.com</li>
+                <li>+251918219856</li>
+                <li>melakuazene623@gmail.com</li>
             </ul>
             </div>
 
@@ -39,7 +39,7 @@ const Footer = () => {
       {/* ------Copy right */}
       <div>
         <hr />
-        <p className='py-5 text-sm text-center'> Copyright 2024@ Prescripto - All Rights Reserved.</p>
+        <p className='py-5 text-sm text-center'> Copyright @2025 Prescripto - All Rights Reserved.</p>
 
       </div>
     </div>
