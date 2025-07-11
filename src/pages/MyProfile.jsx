@@ -4,18 +4,17 @@ import assets from '../assets/assets'
 
 const MyProfile = () => {
 
-const [userData, setUserData]= useState({
-  name:"Edward Vincent",
-  image:assets.profile_pic,
-  email:"richardjamseswap@gmail.com",
-  phone:'+8431455095',
-  address:{
-    line1:"57th Cross, Richmond",
-    line2:"Circle, Chruch Road, London"
+const [userData, setUserData] = useState({
+  name: "Melaku Azene",
+  image: assets.myprofile,
+  email: "melakuazene623@gmail.com",
+  phone: "+251918219856",
+  address: {
+    line1: "Addis Abeba",    
   },
-  gender:'Male',
-  dob:'2000-01-20'
-})
+  gender: "Male",
+  dob: "2002-04-07",
+});
 
 
 
@@ -62,8 +61,7 @@ const [isEdit, setisEdit] = useState(false)
   </p>
   : <p className='text-gray-500'>
     {userData.address.line1}
-    <br />
-    {userData.address.line2}
+   
   </p>
 }
 
