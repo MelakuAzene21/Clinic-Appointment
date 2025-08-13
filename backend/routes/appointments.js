@@ -2,7 +2,8 @@ import express from 'express';
 import { body } from 'express-validator';
 import Appointment from '../models/Appointment.js';
 import Doctor from '../models/Doctor.js';
-import { protect, authorize } from '../middleware/auth.js';
+import { protect } from '../middleware/auth.js';
+import { authorize } from '../middleware/authorize.js';
 
 const router = express.Router();
 
@@ -256,6 +257,247 @@ router.put('/:id/prescription', protect, authorize('admin'), [
     res.status(500).json({
       status: 'error',
       message: error.message
+    });
+  }
+});
+
+// Get appointments for doctor
+router.get('/doctor', protect, authorize('doctor'), async (req, res) => {
+  try {
+    // Find appointments by doctor's email since we need to match with Doctor model
+    const appointments = await Appointment.find({})
+      .populate('patient', 'name email phone')
+      .populate('doctor', 'name speciality')
+      .sort({ appointmentDate: 1 });
+
+    // Filter appointments for the logged-in doctor by email
+    const doctorAppointments = appointments.filter(appointment => 
+      appointment.doctor && appointment.doctor.email === req.user.email
+    );
+
+    res.json({
+      status: 'success',
+      data: doctorAppointments
+    });
+  } catch (error) {
+    console.error('Error fetching doctor appointments:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Server error'
+    });
+  }
+});
+
+// Get doctor's patients
+router.get('/doctor/patients', protect, authorize('doctor'), async (req, res) => {
+  try {
+    const appointments = await Appointment.find({})
+      .populate('patient', 'name email phone')
+      .populate('doctor', 'email')
+      .sort({ appointmentDate: -1 });
+
+    // Filter appointments for the logged-in doctor
+    const doctorAppointments = appointments.filter(appointment => 
+      appointment.doctor && appointment.doctor.email === req.user.email
+    );
+
+    // Get unique patients
+    const patients = [];
+    const patientIds = new Set();
+    
+    doctorAppointments.forEach(appointment => {
+      if (appointment.patient && !patientIds.has(appointment.patient._id.toString())) {
+        patientIds.add(appointment.patient._id.toString());
+        patients.push({
+          _id: appointment.patient._id,
+          name: appointment.patient.name,
+          email: appointment.patient.email,
+          phone: appointment.patient.phone,
+          totalAppointments: doctorAppointments.filter(apt => 
+            apt.patient._id.toString() === appointment.patient._id.toString()
+          ).length,
+          lastVisit: appointment.appointmentDate
+        });
+      }
+    });
+
+    res.json({
+      status: 'success',
+      data: patients
+    });
+  } catch (error) {
+    console.error('Error fetching doctor patients:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Server error'
+    });
+  }
+});
+
+// Get doctor's earnings
+router.get('/doctor/earnings', protect, authorize('doctor'), async (req, res) => {
+  try {
+    const { period = 'month' } = req.query;
+    const appointments = await Appointment.find({})
+      .populate('doctor', 'email')
+      .sort({ appointmentDate: -1 });
+
+    // Filter appointments for the logged-in doctor
+    const doctorAppointments = appointments.filter(appointment => 
+      appointment.doctor && appointment.doctor.email === req.user.email
+    );
+
+    // Calculate earnings based on period
+    const now = new Date();
+    let startDate;
+    
+    switch (period) {
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'year':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        break;
+      default:
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+
+    const filteredAppointments = doctorAppointments.filter(appointment => 
+      appointment.status === 'completed' && 
+      new Date(appointment.appointmentDate) >= startDate
+    );
+
+    const totalEarnings = filteredAppointments.reduce((sum, appointment) => sum + appointment.amount, 0);
+    const totalAppointments = filteredAppointments.length;
+
+    // Monthly earnings for the last 6 months
+    const monthlyEarnings = [];
+    for (let i = 5; i >= 0; i--) {
+      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+      
+      const monthAppointments = doctorAppointments.filter(appointment => 
+        appointment.status === 'completed' &&
+        new Date(appointment.appointmentDate) >= monthStart &&
+        new Date(appointment.appointmentDate) <= monthEnd
+      );
+      
+      const monthEarnings = monthAppointments.reduce((sum, appointment) => sum + appointment.amount, 0);
+      
+      monthlyEarnings.push({
+        month: monthStart.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        earnings: monthEarnings,
+        appointments: monthAppointments.length
+      });
+    }
+
+    res.json({
+      status: 'success',
+      data: {
+        totalEarnings,
+        totalAppointments,
+        period,
+        monthlyEarnings
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching doctor earnings:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Server error'
+    });
+  }
+});
+
+// Update appointment status (doctor only)
+router.put('/:id/status', protect, authorize('doctor'), async (req, res) => {
+  try {
+    const { status } = req.body;
+    const appointment = await Appointment.findById(req.params.id)
+      .populate('doctor', 'email');
+
+    if (!appointment) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Appointment not found'
+      });
+    }
+
+    // Check if the appointment belongs to the logged-in doctor
+    if (appointment.doctor.email !== req.user.email) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Not authorized to update this appointment'
+      });
+    }
+
+    appointment.status = status;
+    await appointment.save();
+
+    const updatedAppointment = await Appointment.findById(appointment._id)
+      .populate('patient', 'name email phone')
+      .populate('doctor', 'name speciality');
+
+    res.json({
+      status: 'success',
+      data: updatedAppointment
+    });
+  } catch (error) {
+    console.error('Error updating appointment status:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Server error'
+    });
+  }
+});
+
+// Add prescription to appointment (doctor only)
+router.put('/:id/prescription', protect, authorize('doctor'), async (req, res) => {
+  try {
+    const { diagnosis, medicines, recommendations, nextVisit } = req.body;
+    const appointment = await Appointment.findById(req.params.id)
+      .populate('doctor', 'email');
+
+    if (!appointment) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Appointment not found'
+      });
+    }
+
+    // Check if the appointment belongs to the logged-in doctor
+    if (appointment.doctor.email !== req.user.email) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Not authorized to update this appointment'
+      });
+    }
+
+    appointment.prescription = {
+      diagnosis,
+      medicines,
+      recommendations,
+      nextVisit: nextVisit ? new Date(nextVisit) : null
+    };
+    appointment.status = 'completed';
+    await appointment.save();
+
+    const updatedAppointment = await Appointment.findById(appointment._id)
+      .populate('patient', 'name email phone')
+      .populate('doctor', 'name speciality');
+
+    res.json({
+      status: 'success',
+      data: updatedAppointment
+    });
+  } catch (error) {
+    console.error('Error adding prescription:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Server error'
     });
   }
 });

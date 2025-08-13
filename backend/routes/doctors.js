@@ -1,7 +1,8 @@
 import express from 'express';
 import { body } from 'express-validator';
 import Doctor from '../models/Doctor.js';
-import { protect, authorize } from '../middleware/auth.js';
+import { protect } from '../middleware/auth.js';
+import { authorize } from '../middleware/authorize.js';
 
 const router = express.Router();
 

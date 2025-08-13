@@ -43,8 +43,30 @@ const Navbar = () => {
             <div className='absolute top-0 right-0 pt-14 text-base font-medium text-gray-600 z-20 hidden group-hover:block'>
               <div className='min-w-48 bg-stone-100 rounded flex flex-col gap-4 p-4'>
                 <p className='text-sm font-semibold text-gray-800'>{user.name}</p>
-                <p onClick={() => navigate('/my-profile')} className='hover:text-black cursor-pointer'>My Profile</p>
-                <p onClick={() => navigate('/my-appointments')} className='hover:text-black cursor-pointer'>My Appointments</p>
+                <p className='text-xs text-gray-500 capitalize'>{user.role}</p>
+                
+                {/* Role-based navigation */}
+                {user.role === 'admin' && (
+                  <>
+                    <p onClick={() => navigate('/admin')} className='hover:text-black cursor-pointer'>Admin Dashboard</p>
+                    <p onClick={() => navigate('/doctors')} className='hover:text-black cursor-pointer'>Manage Doctors</p>
+                  </>
+                )}
+                
+                {user.role === 'doctor' && (
+                  <>
+                    <p onClick={() => navigate('/doctor')} className='hover:text-black cursor-pointer'>Doctor Dashboard</p>
+                    <p onClick={() => navigate('/my-appointments')} className='hover:text-black cursor-pointer'>My Appointments</p>
+                  </>
+                )}
+                
+                {user.role === 'patient' && (
+                  <>
+                    <p onClick={() => navigate('/my-profile')} className='hover:text-black cursor-pointer'>My Profile</p>
+                    <p onClick={() => navigate('/my-appointments')} className='hover:text-black cursor-pointer'>My Appointments</p>
+                  </>
+                )}
+                
                 <p onClick={handleLogout} className='hover:text-black cursor-pointer'>Logout</p>
               </div>
             </div>

@@ -241,6 +241,16 @@ const regularUser = {
   isEmailVerified: true
 };
 
+// Sample doctor user
+const doctorUser = {
+  name: 'Dr. Sarah Patel',
+  email: 'doctor@prescripto.com',
+  password: 'doctor123',
+  phone: '1234567890',
+  role: 'doctor',
+  isEmailVerified: true
+};
+
 const seedDatabase = async () => {
   try {
     // Connect to MongoDB
@@ -260,6 +270,10 @@ const seedDatabase = async () => {
     const user = await User.create(regularUser);
     console.log('Created regular user:', user.email);
 
+    // Create doctor user
+    const doctor = await User.create(doctorUser);
+    console.log('Created doctor user:', doctor.email);
+
     // Create doctors
     const doctors = await Doctor.insertMany(doctorsData);
     console.log(`Created ${doctors.length} doctors`);
@@ -268,6 +282,7 @@ const seedDatabase = async () => {
     console.log('\nSample credentials:');
     console.log('Admin - Email: admin@prescripto.com, Password: admin123');
     console.log('User - Email: john.doe@example.com, Password: password123');
+    console.log('Doctor - Email: doctor@prescripto.com, Password: doctor123');
 
     process.exit(0);
   } catch (error) {
