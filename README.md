@@ -28,7 +28,7 @@ Prescripto is an online appointment booking website for doctors or hospitals. Us
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/imrohitsampannavar45/Prescripto.git
+git clone https://github.com/MelakuAzene21/Clinic-Appointment
 cd Prescripto
 cd frontend
 
