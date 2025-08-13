@@ -1,106 +1,266 @@
 // eslint-disable-next-line no-unused-vars
-import React, { useState } from 'react'
+import React, { useContext, useState, useEffect } from 'react'
+import { AppContext } from '../context/AppContext'
 import assets from '../assets/assets'
 
 const MyProfile = () => {
+  const { user, updateProfile, token } = useContext(AppContext)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    dateOfBirth: '',
+    gender: '',
+    address: {
+      street: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      country: ''
+    }
+  })
 
-const [userData, setUserData] = useState({
-  name: "Melaku Azene",
-  image: assets.profile_pic,
-  email: "melakuazene623@gmail.com",
-  phone: "+251918219856",
-  address: {
-    line1: "Addis Abeba",
-  },
-  gender: "Male",
-  dob: "2002-04-07",
-});
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name || '',
+        phone: user.phone || '',
+        dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '',
+        gender: user.gender || '',
+        address: {
+          street: user.address?.street || '',
+          city: user.address?.city || '',
+          state: user.address?.state || '',
+          zipCode: user.address?.zipCode || '',
+          country: user.address?.country || ''
+        }
+      })
+    }
+  }, [user])
 
+  const handleInputChange = (e) => {
+    const { name, value } = e.target
+    if (name.includes('.')) {
+      const [parent, child] = name.split('.')
+      setFormData(prev => ({
+        ...prev,
+        [parent]: {
+          ...prev[parent],
+          [child]: value
+        }
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }))
+    }
+  }
 
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    setSuccess('')
 
-const [isEdit, setisEdit] = useState(false)
+    try {
+      const result = await updateProfile(formData)
+      
+      if (result.success) {
+        setSuccess('Profile updated successfully!')
+      } else {
+        setError(result.message)
+      }
+    } catch (err) {
+      setError('Failed to update profile. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
-
-
+  if (!token) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Please login to view your profile</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className='max-w-lg flex flex-col gap-2 text-sm'>
-      <img className='w-36 rounded' src={userData.image} alt="" />
+    <div className="max-w-2xl mx-auto">
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">My Profile</h1>
 
-      {
-        isEdit 
-        ?
-        <input className='bg-gray-50 text-3xl font-medium max-w-60 mt-4' type="text" value={userData.name} onChange={e => setUserData(prev =>({...prev,name:e.target.value}))}/> 
-        : <p className='font-medium text-3xl text-neutral-800 mt-4'>{userData.name}</p>
-      }
+      {error && (
+        <div className="w-full p-3 bg-red-100 border border-red-400 text-red-700 rounded mb-4">
+          {error}
+        </div>
+      )}
 
-      <hr className='bg-zinc-500 h-[1px] border-none' />
+      {success && (
+        <div className="w-full p-3 bg-green-100 border border-green-400 text-green-700 rounded mb-4">
+          {success}
+        </div>
+      )}
 
-<div>
-  <p className='text-neutral-500 underline mt-3'>CONTACT INFORMATION</p>
-</div>
-<div className='grid grid-cols-[1fr_3fr] gap-y-2.5 mt-3 text-neutral-700 '>
-  <p className='font-medium'>Email ID:</p>
-  <p className='text-blue-500'>{userData.email}</p>
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div className="flex items-center space-x-4 mb-6">
+          <img 
+            src={user?.profileImage || assets.profile_pic} 
+            alt="Profile" 
+            className="w-20 h-20 rounded-full object-cover"
+          />
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">{user?.name}</h2>
+            <p className="text-gray-600">{user?.email}</p>
+          </div>
+        </div>
 
-  <p className='font-medium'>Phone:</p>
-{
-   isEdit 
-   ?
-   <input className='bg-gray-100 max-w-52' type="text" value={userData.phone} onChange={e => setUserData(prev =>({...prev,phone:e.target.value}))}/> 
-   : <p className='text-blue-400'>{userData.phone}</p>
-}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Full Name
+              </label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                required
+              />
+            </div>
 
-<p className='font-medium'>Address:</p>
-{
-  isEdit
-  ? <p>
-    <input className='bg-gray-50' onChange={(e) =>setUserData(prev => ({...prev, address:{...prev.address, line1: e.target.value}}))} value={userData.address.line1} type="text" />
-    <br />
-    <input className='bg-gray-50' type="text"  onChange={(e) =>setUserData(prev => ({...prev, address:{...prev.address, line2: e.target.value}}))} value={userData.address.line1}/>
-  </p>
-  : <p className='text-gray-500'>
-    {userData.address.line1}
-   
-  </p>
-}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleInputChange}
+                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="1234567890"
+              />
+            </div>
 
-</div>
-<div>
-  <p className='text-neutral-500 underline mt-3'>BASIC INFORMATION</p>
-  <div className='grid grid-cols-[1fr_3fr] gap-y-2.5 mt-3 text-neutral-700'>
-    <p className='font-medium'>Gender</p>
-    {
-   isEdit 
-   ?
-   <select className='max-w-20 bg-gray-100' onChange={(e)=> setUserData(prev => ({...prev, gender: e.target.value}))} value={userData.gender}>
-    <option value="Male">Male</option>
-    <option value="Female">Female</option>
-   </select>
-   : <p className='text-gray-400'>{userData.gender}</p>
-}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Date of Birth
+              </label>
+              <input
+                type="date"
+                name="dateOfBirth"
+                value={formData.dateOfBirth}
+                onChange={handleInputChange}
+                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
 
-<p className='font-medium'>Birthday:</p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Gender
+              </label>
+              <select
+                name="gender"
+                value={formData.gender}
+                onChange={handleInputChange}
+                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Select Gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
 
-{
+          <div>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Address Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Street Address
+                </label>
+                <input
+                  type="text"
+                  name="address.street"
+                  value={formData.address.street}
+                  onChange={handleInputChange}
+                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
 
-  isEdit ? 
-  <input className='max-w-28 bg-gray-100' type="date" onChange={(e)=> setUserData(prev => ({...prev, gender: e.target.value}))} value={userData.dob} />
-  : <p className='text-gray-400'>{userData.dob}</p>
-}
-  </div>
-</div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  City
+                </label>
+                <input
+                  type="text"
+                  name="address.city"
+                  value={formData.address.city}
+                  onChange={handleInputChange}
+                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  State
+                </label>
+                <input
+                  type="text"
+                  name="address.state"
+                  value={formData.address.state}
+                  onChange={handleInputChange}
+                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
 
-<div className='mt-10'>
-  {
-    isEdit ? 
-    <button className='border border-primary px-8 py-2 rounded-full hover:bg-primary hover:text-white transition-all ' onClick={()=>setisEdit(false)}>Save Information</button> :
-    <button className='border border-primary px-8 py-2 rounded-full  hover:bg-primary hover:text-white transition-all' onClick={()=>setisEdit(true)}> Edit</button>
-  }
-</div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ZIP Code
+                </label>
+                <input
+                  type="text"
+                  name="address.zipCode"
+                  value={formData.address.zipCode}
+                  onChange={handleInputChange}
+                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
 
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Country
+                </label>
+                <input
+                  type="text"
+                  name="address.country"
+                  value={formData.address.country}
+                  onChange={handleInputChange}
+                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+            </div>
+          </div>
 
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={loading}
+              className="bg-primary text-white px-6 py-3 rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors"
+            >
+              {loading ? 'Updating...' : 'Update Profile'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
