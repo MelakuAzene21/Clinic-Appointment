@@ -15,7 +15,7 @@ import Appointment from './pages/Appointment'
 import AdminDashboard from './pages/AdminDashboard'
 import DoctorDashboard from './pages/DoctorDashboard'
 
-// Protected Route Component
+// Protected Route Component for role-specific pages
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const { user, token } = useContext(AppContext);
   
@@ -57,33 +57,15 @@ function App() {
       <Navbar />
       <main className="min-h-screen">
         <Routes>
-          {/* Public Routes - Only accessible to patients or non-logged users */}
-          <Route path="/" element={
-            <ProtectedRoute allowedRoles={['patient']}>
-              <Home />
-            </ProtectedRoute>
-          } />
-          <Route path="/doctors" element={
-            <ProtectedRoute allowedRoles={['patient']}>
-              <Doctors />
-            </ProtectedRoute>
-          } />
-          <Route path="/doctors/:speciality" element={
-            <ProtectedRoute allowedRoles={['patient']}>
-              <Doctors />
-            </ProtectedRoute>
-          } />
+          {/* Public Routes - Accessible to everyone */}
+          <Route path="/" element={<Home />} />
+          <Route path="/doctors" element={<Doctors />} />
+          <Route path="/doctors/:speciality" element={<Doctors />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/about" element={
-            <ProtectedRoute allowedRoles={['patient']}>
-              <About />
-            </ProtectedRoute>
-          } />
-          <Route path="/contact" element={
-            <ProtectedRoute allowedRoles={['patient']}>
-              <Contact />
-            </ProtectedRoute>
-          } />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+          
+          {/* Patient-only Routes - Require login and patient role */}
           <Route path="/appointment/:docId" element={
             <ProtectedRoute allowedRoles={['patient']}>
               <Appointment />

@@ -47,7 +47,8 @@ const AppContextProvider = (props) => {
       localStorage.setItem('token', newToken);
       axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
       
-      return { success: true, data: response.data.data };
+      // Return role for redirection
+      return { success: true, data: response.data.data, role: userData.role };
     } catch (err) {
       console.error('Login error:', err);
       return { 
@@ -68,7 +69,8 @@ const AppContextProvider = (props) => {
       localStorage.setItem('token', newToken);
       axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
       
-      return { success: true, data: response.data.data };
+      // Return role for redirection
+      return { success: true, data: response.data.data, role: userInfo.role };
     } catch (err) {
       console.error('Registration error:', err);
       return { 

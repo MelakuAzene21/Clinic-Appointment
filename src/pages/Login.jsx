@@ -29,7 +29,8 @@ const Login = () => {
       }
 
       if (result.success) {
-        const role = result.data?.role
+        // Use role from login response for redirection
+        const role = result.role || result.data?.role
         if (role === 'doctor') {
           navigate('/doctor')
         } else if (role === 'admin') {
