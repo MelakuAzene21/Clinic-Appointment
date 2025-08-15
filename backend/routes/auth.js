@@ -204,8 +204,7 @@ router.post('/register-doctor', protect, authorize('admin'), [
         line2: '',
         city: '',
         state: '',
-        zipCode: '',
-        country: ''
+        zipCode: ''
       },
       rating: 0,
       totalReviews: 0,
@@ -220,7 +219,8 @@ router.post('/register-doctor', protect, authorize('admin'), [
         token,
         user: doctorUser,
         doctor: doctor
-      }
+      },
+      message: `Doctor registered successfully! Login credentials: Email: ${email}, Password: ${password}`
     });
   } catch (error) {
     console.error('Doctor registration error:', error);

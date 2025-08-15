@@ -54,25 +54,20 @@ const doctorSchema = new mongoose.Schema({
   },
   image: {
     type: String,
-    required: [true, 'Please provide doctor image']
   },
   address: {
     line1: {
       type: String,
-      required: [true, 'Please provide address line 1']
     },
     line2: String,
     city: {
       type: String,
-      required: [true, 'Please provide city']
     },
     state: {
       type: String,
-      required: [true, 'Please provide state']
     },
     zipCode: {
       type: String,
-      required: [true, 'Please provide zip code']
     }
   },
   rating: {

@@ -188,7 +188,11 @@ const AppContextProvider = (props) => {
   const registerDoctor = async (doctorData) => {
     try {
       const response = await axios.post('/auth/register-doctor', doctorData);
-      return { success: true, data: response.data.data };
+      return { 
+        success: true, 
+        data: response.data.data,
+        message: response.data.message 
+      };
     } catch (err) {
       console.error('Error registering doctor:', err);
       return { 

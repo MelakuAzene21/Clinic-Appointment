@@ -29,7 +29,14 @@ const Login = () => {
       }
 
       if (result.success) {
-        navigate('/')
+        const role = result.data?.role
+        if (role === 'doctor') {
+          navigate('/doctor')
+        } else if (role === 'admin') {
+          navigate('/admin')
+        } else {
+          navigate('/')
+        }
       } else {
         setError(result.message)
       }
@@ -83,7 +90,7 @@ const Login = () => {
             type="password" 
             onChange={(e) => setPassword(e.target.value)} 
             value={password} 
-            required 
+             
           />
         </div>
 

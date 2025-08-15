@@ -44,7 +44,7 @@ const AdminDashboard = () => {
       const result = await registerDoctor(doctorForm);
       
       if (result.success) {
-        setSuccess('Doctor registered successfully!');
+        setSuccess(result.message || 'Doctor registered successfully!');
         setDoctorForm({
           name: '',
           email: '',

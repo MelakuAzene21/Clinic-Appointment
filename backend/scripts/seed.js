@@ -278,6 +278,57 @@ const seedDatabase = async () => {
     const doctors = await Doctor.insertMany(doctorsData);
     console.log(`Created ${doctors.length} doctors`);
 
+    // Ensure there is a Doctor profile for the seeded doctorUser email so the doctor can receive appointments
+    const existingDoctorProfile = await Doctor.findOne({ email: doctorUser.email });
+    if (!existingDoctorProfile) {
+      await Doctor.create({
+        name: doctorUser.name,
+        email: doctorUser.email,
+        phone: doctorUser.phone,
+        speciality: 'General physician',
+        degree: 'MBBS',
+        experience: '3 Years',
+        about: 'Seeded doctor account for testing. This profile links to the doctor user so appointments can be assigned.',
+        fees: 45,
+        image: '/src/assets/doc1.png',
+        address: {
+          line1: 'Seed Street',
+          line2: 'Suite 100',
+          city: 'Testville',
+          state: 'TS',
+          zipCode: '00000'
+        },
+        rating: 4.0,
+        totalReviews: 0,
+        isVerified: true,
+        isActive: true
+      });
+      console.log('Created matching Doctor profile for seeded doctor user');
+    }
+
+    // Create User accounts for each doctor in doctorsData so they can log in
+    const createdDoctorUsers = [];
+    for (const doc of doctorsData) {
+      const existing = await User.findOne({ email: doc.email });
+      if (!existing) {
+        const created = await User.create({
+          name: doc.name,
+          email: doc.email,
+          password: 'doctor123',
+          phone: doc.phone,
+          role: 'doctor',
+          isEmailVerified: true
+        });
+        createdDoctorUsers.push(created.email);
+      }
+    }
+    if (createdDoctorUsers.length > 0) {
+      console.log(`Created ${createdDoctorUsers.length} doctor user accounts (default password: doctor123)`);
+      createdDoctorUsers.forEach(e => console.log(`Doctor - Email: ${e}, Password: doctor123`));
+    } else {
+      console.log('All seeded doctors already have user accounts.');
+    }
+
     console.log('Database seeded successfully!');
     console.log('\nSample credentials:');
     console.log('Admin - Email: admin@prescripto.com, Password: admin123');
