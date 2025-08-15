@@ -3,6 +3,7 @@ import { body } from 'express-validator';
 import User from '../models/User.js';
 import { protect } from '../middleware/auth.js';
 import { authorize } from '../middleware/authorize.js';
+import mongoose from 'mongoose';
 
 const router = express.Router();
 
@@ -177,6 +178,106 @@ router.get('/', protect, authorize('admin'), async (req, res) => {
         total: Math.ceil(total / limit),
         hasNext: page * limit < total,
         hasPrev: page > 1
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message
+    });
+  }
+});
+
+// @desc    Get all patients for admin dashboard
+// @route   GET /api/users/patients
+// @access  Private/Admin
+router.get('/patients', protect, authorize('admin'), async (req, res) => {
+  try {
+    const { search, page = 1, limit = 10 } = req.query;
+    
+    // Build query for patients only
+    const query = { role: 'patient' };
+    
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Pagination
+    const skip = (page - 1) * limit;
+    
+    const patients = await User.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+    
+    const total = await User.countDocuments(query);
+    
+    res.json({
+      status: 'success',
+      data: patients,
+      pagination: {
+        current: parseInt(page),
+        total: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message
+    });
+  }
+});
+
+// @desc    Get admin dashboard statistics
+// @route   GET /api/users/admin-stats
+// @access  Private/Admin
+router.get('/admin-stats', protect, authorize('admin'), async (req, res) => {
+  try {
+    // Import models
+    const User = mongoose.model('User');
+    const Doctor = mongoose.model('Doctor');
+    const Appointment = mongoose.model('Appointment');
+    
+    // Get counts
+    const totalDoctors = await Doctor.countDocuments({ isActive: true });
+    const totalPatients = await User.countDocuments({ role: 'patient', isActive: true });
+    const totalAppointments = await Appointment.countDocuments();
+    
+    // Calculate total revenue from completed appointments
+    const completedAppointments = await Appointment.find({ 
+      status: 'completed',
+      paymentStatus: 'paid'
+    });
+    const totalRevenue = completedAppointments.reduce((sum, apt) => sum + apt.amount, 0);
+    
+    // Get recent appointments
+    const recentAppointments = await Appointment.find()
+      .populate('patient', 'name email')
+      .populate('doctor', 'name speciality')
+      .sort({ createdAt: -1 })
+      .limit(5);
+    
+    // Get appointments by status
+    const pendingAppointments = await Appointment.countDocuments({ status: 'pending' });
+    const confirmedAppointments = await Appointment.countDocuments({ status: 'confirmed' });
+    const completedAppointmentsCount = await Appointment.countDocuments({ status: 'completed' });
+    
+    res.json({
+      status: 'success',
+      data: {
+        totalDoctors,
+        totalPatients,
+        totalAppointments,
+        totalRevenue,
+        pendingAppointments,
+        confirmedAppointments,
+        completedAppointmentsCount,
+        recentAppointments
       }
     });
   } catch (error) {

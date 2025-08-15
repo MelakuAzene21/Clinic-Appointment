@@ -57,19 +57,44 @@ function App() {
       <Navbar />
       <main className="min-h-screen">
         <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/doctors" element={<Doctors />} />
-          <Route path="/doctors/:speciality" element={<Doctors />} />
+          {/* Public Routes - Only accessible to patients or non-logged users */}
+          <Route path="/" element={
+            <ProtectedRoute allowedRoles={['patient']}>
+              <Home />
+            </ProtectedRoute>
+          } />
+          <Route path="/doctors" element={
+            <ProtectedRoute allowedRoles={['patient']}>
+              <Doctors />
+            </ProtectedRoute>
+          } />
+          <Route path="/doctors/:speciality" element={
+            <ProtectedRoute allowedRoles={['patient']}>
+              <Doctors />
+            </ProtectedRoute>
+          } />
           <Route path="/login" element={<Login />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/appointment/:docId" element={<Appointment />} />
+          <Route path="/about" element={
+            <ProtectedRoute allowedRoles={['patient']}>
+              <About />
+            </ProtectedRoute>
+          } />
+          <Route path="/contact" element={
+            <ProtectedRoute allowedRoles={['patient']}>
+              <Contact />
+            </ProtectedRoute>
+          } />
+          <Route path="/appointment/:docId" element={
+            <ProtectedRoute allowedRoles={['patient']}>
+              <Appointment />
+            </ProtectedRoute>
+          } />
           
-          {/* Protected Routes */}
+          {/* Patient-only Routes */}
           <Route 
             path="/dashboard" 
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['patient']}>
                 <Dashboard />
               </ProtectedRoute>
             } 
@@ -77,7 +102,7 @@ function App() {
           <Route 
             path="/my-profile" 
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['patient']}>
                 <MyProfile />
               </ProtectedRoute>
             } 
@@ -85,7 +110,7 @@ function App() {
           <Route 
             path="/my-appointments" 
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['patient']}>
                 <MyAppointments />
               </ProtectedRoute>
             } 

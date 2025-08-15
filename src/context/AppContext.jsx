@@ -230,6 +230,47 @@ const AppContextProvider = (props) => {
     }
   };
 
+  // Admin dashboard functions
+  const getAdminStats = async () => {
+    try {
+      const response = await axios.get('/users/admin-stats');
+      return { success: true, data: response.data.data };
+    } catch (err) {
+      console.error('Error fetching admin stats:', err);
+      return { 
+        success: false, 
+        message: err.response?.data?.message || 'Failed to fetch admin statistics' 
+      };
+    }
+  };
+
+  const getAdminPatients = async (search = '', page = 1) => {
+    try {
+      const response = await axios.get(`/users/patients?search=${search}&page=${page}`);
+      return { success: true, data: response.data.data, pagination: response.data.pagination };
+    } catch (err) {
+      console.error('Error fetching admin patients:', err);
+      return { 
+        success: false, 
+        message: err.response?.data?.message || 'Failed to fetch patients' 
+      };
+    }
+  };
+
+  const getAdminAppointments = async (filters = {}, page = 1) => {
+    try {
+      const params = new URLSearchParams({ page, ...filters });
+      const response = await axios.get(`/appointments/admin/all?${params}`);
+      return { success: true, data: response.data.data, pagination: response.data.pagination };
+    } catch (err) {
+      console.error('Error fetching admin appointments:', err);
+      return { 
+        success: false, 
+        message: err.response?.data?.message || 'Failed to fetch appointments' 
+      };
+    }
+  };
+
   // Initialize app
   useEffect(() => {
     fetchDoctors();
@@ -257,7 +298,10 @@ const AppContextProvider = (props) => {
     addPrescription,
     registerDoctor,
     getDoctorPatients,
-    getDoctorEarnings
+    getDoctorEarnings,
+    getAdminStats,
+    getAdminPatients,
+    getAdminAppointments
   };
 
   return (

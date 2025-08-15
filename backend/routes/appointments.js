@@ -1047,4 +1047,60 @@ router.put('/:id/prescription', protect, authorize('admin', 'doctor'), [
 
 // Removed duplicate doctor-only routes by unifying logic above
 
+// @desc    Get all appointments for admin
+// @route   GET /api/appointments/admin/all
+// @access  Private/Admin
+router.get('/admin/all', protect, authorize('admin'), async (req, res) => {
+  try {
+    const { status, doctorId, patientId, date, page = 1, limit = 10 } = req.query;
+    
+    // Build query
+    const query = {};
+    
+    if (status) {
+      query.status = status;
+    }
+    
+    if (doctorId) {
+      query.doctor = doctorId;
+    }
+    
+    if (patientId) {
+      query.patient = patientId;
+    }
+    
+    if (date) {
+      query.appointmentDate = new Date(date);
+    }
+    
+    // Pagination
+    const skip = (page - 1) * limit;
+    
+    const appointments = await Appointment.find(query)
+      .populate('patient', 'name email phone')
+      .populate('doctor', 'name speciality email')
+      .sort({ appointmentDate: -1, appointmentTime: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+    
+    const total = await Appointment.countDocuments(query);
+    
+    res.json({
+      status: 'success',
+      data: appointments,
+      pagination: {
+        current: parseInt(page),
+        total: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message
+    });
+  }
+});
+
 export default router;
