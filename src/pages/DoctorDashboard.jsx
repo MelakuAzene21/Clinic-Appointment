@@ -1,9 +1,21 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AppContext } from '../context/AppContext';
+import { useChat } from '../context/ChatContext';
 import assets from '../assets/assets';
 
 const DoctorDashboard = () => {
   const { user, getDoctorAppointments, updateAppointmentStatus, addPrescription, updateProfile, getDoctorPatients, getDoctorEarnings } = useContext(AppContext);
+  const chatContext = useChat();
+  const { createChat, chats, currentChat, setCurrentChat, sendMessage, isConnected, unreadCounts } = chatContext;
+  
+  console.log('ChatContext debug:', chatContext);
+  console.log('setCurrentChat function:', setCurrentChat);
+  
+  // Ensure chat context is properly initialized
+  if (!chatContext || !setCurrentChat) {
+    console.error('ChatContext not properly initialized:', chatContext);
+    return <div>Loading chat context...</div>;
+  }
   const [activeTab, setActiveTab] = useState('overview');
   const [appointments, setAppointments] = useState([]);
   const [patients, setPatients] = useState([]);
@@ -13,6 +25,9 @@ const DoctorDashboard = () => {
   const [success, setSuccess] = useState('');
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [messageText, setMessageText] = useState('');
   const [prescriptionForm, setPrescriptionForm] = useState({
     diagnosis: '',
     medicines: [{ name: '', dosage: '', duration: '', instructions: '' }],
@@ -134,6 +149,56 @@ const DoctorDashboard = () => {
     }));
   };
 
+  // Chat functions
+  const handleStartChat = async (patient) => {
+    try {
+      console.log('Starting chat with patient:', patient);
+      console.log('setCurrentChat function in handleStartChat:', setCurrentChat);
+      
+      setSelectedPatient(patient);
+      setShowChatModal(true);
+      
+      // Check if chat already exists
+      const existingChat = chats.find(chat => 
+        chat.patient?._id === patient._id || chat.patient === patient._id
+      );
+      
+      console.log('Existing chat found:', existingChat);
+      
+      if (existingChat) {
+        console.log('Setting existing chat:', existingChat);
+        setCurrentChat(existingChat);
+      } else {
+        // Create new chat
+        console.log('Creating new chat for patient:', patient._id);
+        const result = await createChat(patient._id);
+        console.log('Create chat result:', result);
+        if (result.success) {
+          setCurrentChat(result.data);
+        }
+      }
+    } catch (err) {
+      console.error('Error in handleStartChat:', err);
+      setError('Failed to start chat');
+    }
+  };
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!messageText.trim() || !currentChat) return;
+
+    try {
+      const result = await sendMessage(currentChat._id, messageText.trim());
+      if (result.success) {
+        setMessageText('');
+      } else {
+        setError('Failed to send message');
+      }
+    } catch (err) {
+      setError('Failed to send message');
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'confirmed': return 'bg-green-100 text-green-800';
@@ -171,6 +236,24 @@ const DoctorDashboard = () => {
               <p className="text-gray-600">Welcome back, Dr. {user?.name}</p>
             </div>
             <div className="flex items-center space-x-4">
+              {/* Chat Notification */}
+              <div className="relative">
+                <button
+                  onClick={() => setActiveTab('chats')}
+                  className="p-2 text-gray-600 hover:text-gray-900 transition-colors relative"
+                  title="View chats"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  {Object.values(unreadCounts).reduce((sum, count) => sum + count, 0) > 0 && (
+                    <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                      {Object.values(unreadCounts).reduce((sum, count) => sum + count, 0)}
+                    </span>
+                  )}
+                </button>
+              </div>
+              
               <img src={assets.profile_pic} alt="Doctor" className="w-10 h-10 rounded-full" />
               <div>
                 <p className="font-medium text-gray-900">Dr. {user?.name}</p>
@@ -189,6 +272,7 @@ const DoctorDashboard = () => {
               { id: 'overview', name: 'Overview', icon: '📊' },
               { id: 'appointments', name: 'Appointments', icon: '📅' },
               { id: 'patients', name: 'Patients', icon: '👥' },
+              { id: 'chats', name: 'Chats', icon: '💬' },
               { id: 'earnings', name: 'Earnings', icon: '💰' },
               { id: 'profile', name: 'Profile', icon: '👤' }
             ].map((tab) => (
@@ -227,7 +311,7 @@ const DoctorDashboard = () => {
         {activeTab === 'overview' && (
           <div className="space-y-6">
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center">
                   <div className="p-3 rounded-full bg-blue-100 text-blue-600">
@@ -283,6 +367,31 @@ const DoctorDashboard = () => {
                   </div>
                 </div>
               </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="p-3 rounded-full bg-indigo-100 text-indigo-600">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Active Chats</p>
+                    <p className="text-2xl font-semibold text-gray-900">{chats.length}</p>
+                    {Object.values(unreadCounts).reduce((sum, count) => sum + count, 0) > 0 && (
+                      <span className="inline-flex items-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full ml-2">
+                        {Object.values(unreadCounts).reduce((sum, count) => sum + count, 0)} new
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('chats')}
+                    className="ml-auto px-3 py-1 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+                  >
+                    View Chats
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Today's Appointments */}
@@ -311,9 +420,20 @@ const DoctorDashboard = () => {
                             <p className="text-sm text-gray-600">{formatDate(appointment.appointmentDate)} at {appointment.appointmentTime}</p>
                           </div>
                         </div>
-                        <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(appointment.status)}`}>
-                          {appointment.status}
-                        </span>
+                        <div className="flex items-center space-x-3">
+                          <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(appointment.status)}`}>
+                            {appointment.status}
+                          </span>
+                          <button
+                            onClick={() => handleStartChat(appointment.patient)}
+                            className="text-green-600 hover:text-green-800 p-1 rounded-full hover:bg-green-50 transition-colors"
+                            title="Chat with patient"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -407,6 +527,16 @@ const DoctorDashboard = () => {
                                   Add Prescription
                                 </button>
                               )}
+                              <button
+                                onClick={() => handleStartChat(appointment.patient)}
+                                className="text-green-600 hover:text-green-800 flex items-center space-x-1"
+                                title="Chat with patient"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                </svg>
+                                <span>Chat</span>
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -571,6 +701,7 @@ const DoctorDashboard = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Appointments</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Visit</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -596,6 +727,18 @@ const DoctorDashboard = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {patient.lastVisit ? formatDate(patient.lastVisit) : 'N/A'}
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <button
+                            onClick={() => handleStartChat(patient)}
+                            className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                            title="Chat with patient"
+                          >
+                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            Chat
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -607,6 +750,87 @@ const DoctorDashboard = () => {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Chats Tab */}
+        {activeTab === 'chats' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900">Patient Chats</h2>
+              <div className="flex items-center space-x-2">
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  isConnected ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                }`}>
+                  {isConnected ? '🟢 Online' : '🔴 Offline'}
+                </span>
+              </div>
+            </div>
+
+            {chats.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {chats.map((chat) => (
+                  <div key={chat._id} className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow cursor-pointer"
+                       onClick={() => {
+                         setCurrentChat(chat);
+                         setSelectedPatient(chat.patient);
+                         setShowChatModal(true);
+                       }}>
+                    <div className="flex items-center space-x-3 mb-4">
+                      <img src={assets.profile_pic} alt="Patient" className="w-12 h-12 rounded-full" />
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">
+                          {chat.patient?.name || 'Patient'}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          {chat.lastMessage ? new Date(chat.lastMessage).toLocaleDateString() : 'No messages'}
+                        </p>
+                      </div>
+                      {unreadCounts[chat._id] > 0 && (
+                        <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                          {unreadCounts[chat._id]}
+                        </span>
+                      )}
+                    </div>
+                    
+                    {chat.messages && chat.messages.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-sm text-gray-600 line-clamp-2">
+                          {chat.messages[chat.messages.length - 1]?.content || 'No messages yet'}
+                        </p>
+                      </div>
+                    )}
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-500">
+                        {chat.messages ? `${chat.messages.length} messages` : '0 messages'}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCurrentChat(chat);
+                          setSelectedPatient(chat.patient);
+                          setShowChatModal(true);
+                        }}
+                        className="px-3 py-1 text-sm bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
+                      >
+                        Open Chat
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="text-gray-400 mb-4">
+                  <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No chats yet</h3>
+                <p className="text-gray-500">Start chatting with your patients to see conversations here.</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -799,12 +1023,105 @@ const DoctorDashboard = () => {
                     View Patients
                   </button>
                   <button
+                    onClick={() => setActiveTab('chats')}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                  >
+                    View Chats
+                  </button>
+                  <button
                     onClick={() => setActiveTab('earnings')}
                     className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
                   >
                     View Earnings
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Chat Modal */}
+        {showChatModal && selectedPatient && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+              {/* Chat Header */}
+              <div className="bg-primary text-white p-4 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <img src={assets.profile_pic} alt="Patient" className="w-10 h-10 rounded-full" />
+                  <div>
+                    <h3 className="font-semibold">Chat with {selectedPatient.name}</h3>
+                    <p className="text-sm opacity-90">
+                      {isConnected ? '🟢 Online' : '🔴 Offline'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowChatModal(false);
+                    setSelectedPatient(null);
+                    setCurrentChat(null);
+                  }}
+                  className="text-white hover:text-gray-200"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Chat Messages */}
+              <div className="flex-1 overflow-y-auto p-4 h-96">
+                {currentChat && currentChat.messages && currentChat.messages.length > 0 ? (
+                  <div className="space-y-4">
+                    {currentChat.messages.map((message, index) => (
+                      <div
+                        key={index}
+                        className={`flex ${message.senderModel === 'Doctor' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                            message.senderModel === 'Doctor'
+                              ? 'bg-primary text-white'
+                              : 'bg-gray-200 text-gray-900'
+                          }`}
+                        >
+                          <p className="text-sm">{message.content}</p>
+                          <p className="text-xs opacity-70 mt-1">
+                            {new Date(message.timestamp).toLocaleTimeString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center text-gray-500 py-8">
+                    <p>No messages yet</p>
+                    <p className="text-sm">Start the conversation!</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Chat Input */}
+              <div className="border-t p-4">
+                <form onSubmit={handleSendMessage} className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={messageText}
+                    onChange={(e) => setMessageText(e.target.value)}
+                    placeholder="Type your message..."
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                    disabled={!isConnected}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!messageText.trim() || !isConnected}
+                    className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                  </button>
+                </form>
               </div>
             </div>
           </div>

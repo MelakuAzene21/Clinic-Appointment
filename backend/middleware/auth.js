@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import Doctor from '../models/Doctor.js';
 
 export const protect = async (req, res, next) => {
   let token;
@@ -12,14 +13,24 @@ export const protect = async (req, res, next) => {
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // Get user from token
-      req.user = await User.findById(decoded.id).select('-password');
-
-      if (!req.user) {
-        return res.status(401).json({
-          status: 'error',
-          message: 'User not found'
-        });
+      // First try to find in User collection
+      let user = await User.findById(decoded.id).select('-password');
+      
+      if (user) {
+        req.user = user;
+        req.user.role = user.role; // Ensure role is set
+      } else {
+        // If not found in User, try Doctor collection
+        const doctor = await Doctor.findById(decoded.id);
+        if (doctor) {
+          req.user = doctor;
+          req.user.role = 'doctor'; // Set role for doctor
+        } else {
+          return res.status(401).json({
+            status: 'error',
+            message: 'User not found'
+          });
+        }
       }
 
       if (!req.user.isActive) {
