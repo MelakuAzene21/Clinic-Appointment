@@ -273,6 +273,67 @@ const AppContextProvider = (props) => {
     }
   };
 
+  // Review functions
+  const submitReview = async (reviewData) => {
+    try {
+      const response = await axios.post('/reviews', reviewData);
+      return { success: true, data: response.data.data, message: response.data.message };
+    } catch (err) {
+      console.error('Error submitting review:', err);
+      return { 
+        success: false, 
+        message: err.response?.data?.message || 'Failed to submit review' 
+      };
+    }
+  };
+
+  const getDoctorReviews = async (doctorId, page = 1) => {
+    try {
+      const url = `/reviews/doctor/${doctorId}?page=${page}&limit=5`;
+      console.log('AppContext: Fetching reviews for doctor:', doctorId, 'page:', page);
+      console.log('AppContext: Full URL:', `${axios.defaults.baseURL}${url}`);
+      const response = await axios.get(url);
+      console.log('AppContext: Reviews response:', response.data);
+      return { success: true, data: response.data.data, pagination: response.data.pagination };
+    } catch (err) {
+      console.error('Error fetching doctor reviews:', err);
+      console.error('Error response:', err.response);
+      console.error('Error status:', err.response?.status);
+      console.error('Error data:', err.response?.data);
+      return { 
+        success: false, 
+        message: err.response?.data?.message || 'Failed to fetch reviews' 
+      };
+    }
+  };
+
+  const getPatientReviews = async (page = 1) => {
+    try {
+      const response = await axios.get(`/reviews/patient?page=${page}&limit=10`);
+      return { success: true, data: response.data.data, pagination: response.data.pagination };
+    } catch (err) {
+      console.error('Error fetching patient reviews:', err);
+      return { 
+        success: false, 
+        message: err.response?.data?.message || 'Failed to fetch reviews' 
+      };
+    }
+  };
+
+  // Create chat for appointment
+  const createChatForAppointment = async (appointmentId) => {
+    try {
+      const response = await axios.post('/chat', { appointmentId });
+      return { success: true, data: response.data.data };
+    } catch (err) {
+      console.error('Error creating chat:', err);
+      return { 
+        success: false, 
+        message: err.response?.data?.message || 'Failed to create chat' 
+      };
+    }
+  };
+
   // Initialize app
   useEffect(() => {
     fetchDoctors();
@@ -303,7 +364,11 @@ const AppContextProvider = (props) => {
     getDoctorEarnings,
     getAdminStats,
     getAdminPatients,
-    getAdminAppointments
+    getAdminAppointments,
+    createChatForAppointment,
+    submitReview,
+    getDoctorReviews,
+    getPatientReviews
   };
 
   return (

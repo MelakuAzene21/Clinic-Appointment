@@ -561,6 +561,7 @@ import express from 'express';
 import { body } from 'express-validator';
 import Appointment from '../models/Appointment.js';
 import Doctor from '../models/Doctor.js';
+import Chat from '../models/Chat.js';
 import { protect } from '../middleware/auth.js';
 import { authorize } from '../middleware/authorize.js';
 
@@ -908,13 +909,24 @@ router.post('/', protect, [
       notes
     });
 
+    // Create chat for this appointment
+    const chat = new Chat({
+      patient: req.user._id,
+      doctor: doctorId,
+      appointment: appointment._id,
+      messages: []
+    });
+    await chat.save();
+    console.log('Created chat for appointment:', appointment._id, 'chat ID:', chat._id);
+
     const populatedAppointment = await Appointment.findById(appointment._id)
       .populate('doctor', 'name speciality image fees')
       .populate('patient', 'name email phone');
 
     res.status(201).json({
       status: 'success',
-      data: populatedAppointment
+      data: populatedAppointment,
+      chatId: chat._id
     });
   } catch (error) {
     res.status(500).json({

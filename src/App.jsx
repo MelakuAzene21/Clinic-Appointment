@@ -2,6 +2,7 @@
 import React, { useContext } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { AppContext } from './context/AppContext'
+import { ChatProvider } from './context/ChatContext'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import Home from './pages/Home'
@@ -14,6 +15,7 @@ import MyAppointments from './pages/MyAppointments'
 import Appointment from './pages/Appointment'
 import AdminDashboard from './pages/AdminDashboard'
 import DoctorDashboard from './pages/DoctorDashboard'
+import ChatPage from './pages/ChatPage'
 
 // Protected Route Component for role-specific pages
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
@@ -114,6 +116,16 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['doctor']}>
                 <DoctorDashboard />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Chat Routes */}
+          <Route 
+            path="/chat" 
+            element={
+              <ProtectedRoute allowedRoles={['doctor', 'patient']}>
+                <ChatPage />
               </ProtectedRoute>
             } 
           />

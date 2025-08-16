@@ -1,13 +1,21 @@
 // eslint-disable-next-line no-unused-vars
 import React, { useContext, useEffect, useState } from 'react'
 import { AppContext } from '../context/AppContext'
+import { useChat } from '../context/ChatContext'
+import { useNavigate } from 'react-router-dom'
 import assets from '../assets/assets'
+import ReviewForm from '../components/ReviewForm'
 
 const MyAppointments = () => {
-  const { getUserAppointments, token } = useContext(AppContext)
+  const { getUserAppointments, submitReview, token } = useContext(AppContext)
+  const { createChat } = useChat()
+  const navigate = useNavigate()
   const [appointments, setAppointments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [showReviewForm, setShowReviewForm] = useState(false)
+  const [selectedAppointment, setSelectedAppointment] = useState(null)
+  const [submittingReview, setSubmittingReview] = useState(false)
 
   useEffect(() => {
     const fetchAppointments = async () => {
@@ -59,6 +67,45 @@ const MyAppointments = () => {
       month: 'long',
       day: 'numeric'
     })
+  }
+
+  const handleChatClick = async (appointmentId) => {
+    try {
+      const chat = await createChat(appointmentId)
+      if (chat) {
+        navigate('/chat')
+      }
+    } catch (error) {
+      console.error('Error creating chat:', error)
+    }
+  }
+
+  const handleReviewSubmit = async (reviewData) => {
+    try {
+      setSubmittingReview(true)
+      const result = await submitReview(reviewData)
+      
+      if (result.success) {
+        // Refresh appointments to show updated data
+        const result = await getUserAppointments()
+        if (result.success) {
+          setAppointments(result.data)
+        }
+        setShowReviewForm(false)
+        setSelectedAppointment(null)
+      } else {
+        setError(result.message)
+      }
+    } catch (err) {
+      setError('Failed to submit review. Please try again.')
+    } finally {
+      setSubmittingReview(false)
+    }
+  }
+
+  const openReviewForm = (appointment) => {
+    setSelectedAppointment(appointment)
+    setShowReviewForm(true)
   }
 
   if (loading) {
@@ -137,6 +184,26 @@ const MyAppointments = () => {
                   <p className="text-lg font-semibold text-primary mt-2">
                     ${appointment.amount}
                   </p>
+                  <button
+                    onClick={() => handleChatClick(appointment._id)}
+                    className="mt-2 flex items-center gap-2 bg-blue-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-blue-600 transition-colors"
+                  >
+                    <img src={assets.chats_icon} alt="Chat" className="w-4 h-4" />
+                    Chat
+                  </button>
+                  
+                  {/* Review Button for completed appointments */}
+                  {appointment.status === 'completed' && appointment.prescription && (
+                    <button
+                      onClick={() => openReviewForm(appointment)}
+                      className="mt-2 flex items-center gap-2 bg-green-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-green-600 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                      </svg>
+                      Review
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -168,6 +235,19 @@ const MyAppointments = () => {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Review Form Modal */}
+      {showReviewForm && selectedAppointment && (
+        <ReviewForm
+          appointment={selectedAppointment}
+          onSubmit={handleReviewSubmit}
+          onCancel={() => {
+            setShowReviewForm(false)
+            setSelectedAppointment(null)
+          }}
+          isSubmitting={submittingReview}
+        />
       )}
     </div>
   )

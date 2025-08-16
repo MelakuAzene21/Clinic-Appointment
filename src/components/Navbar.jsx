@@ -3,6 +3,7 @@ import React, { useState, useContext } from 'react';
 import assets from '../assets/assets'
 import { NavLink, useNavigate } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
+import ChatNotification from './ChatNotification';
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -37,6 +38,11 @@ const Navbar = () => {
         </NavLink>
       </ul>
       <div className='flex items-center gap-4'>
+        {token && user && (user.role === 'doctor' || user.role === 'patient') && (
+          <div className='cursor-pointer' onClick={() => navigate('/chat')}>
+            <ChatNotification />
+          </div>
+        )}
         {token && user ? (
           <div className='flex items-center gap-2 cursor-pointer group relative'>
             <img className='w-8 rounded-full' src={assets.profile_pic} alt="" />
@@ -58,6 +64,7 @@ const Navbar = () => {
                   <>
                     <p onClick={() => navigate('/doctor')} className='hover:text-black cursor-pointer'>Doctor Dashboard</p>
                     <p onClick={() => navigate('/my-appointments')} className='hover:text-black cursor-pointer'>My Appointments</p>
+                    <p onClick={() => navigate('/chat')} className='hover:text-black cursor-pointer'>Messages</p>
                   </>
                 )}
                 
@@ -65,6 +72,7 @@ const Navbar = () => {
                   <>
                     <p onClick={() => navigate('/my-profile')} className='hover:text-black cursor-pointer'>My Profile</p>
                     <p onClick={() => navigate('/my-appointments')} className='hover:text-black cursor-pointer'>My Appointments</p>
+                    <p onClick={() => navigate('/chat')} className='hover:text-black cursor-pointer'>Messages</p>
                   </>
                 )}
                 
