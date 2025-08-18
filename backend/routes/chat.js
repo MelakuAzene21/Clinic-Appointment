@@ -21,7 +21,7 @@ router.get('/', protect, async (req, res) => {
         doctor: req.user._id,
         isActive: true 
       })
-      .populate('patient', 'name email')
+      .populate('patient', 'name email image')
       .populate('appointment', 'appointmentDate appointmentTime status')
       .populate('messages.sender', 'name')
       .sort({ lastMessage: -1 });
@@ -31,7 +31,7 @@ router.get('/', protect, async (req, res) => {
         patient: req.user._id,
         isActive: true 
       })
-      .populate('doctor', 'name speciality')
+      .populate('doctor', 'name speciality image')
       .populate('appointment', 'appointmentDate appointmentTime status')
       .populate('messages.sender', 'name')
       .sort({ lastMessage: -1 });
@@ -43,6 +43,12 @@ router.get('/', protect, async (req, res) => {
     }
 
     console.log('Found chats:', chats.length);
+    
+    // Debug: Log the first chat structure
+    if (chats.length > 0) {
+      console.log('First chat structure:', JSON.stringify(chats[0], null, 2));
+    }
+    
     res.json({
       status: 'success',
       data: chats
@@ -61,8 +67,8 @@ router.get('/', protect, async (req, res) => {
 router.get('/:chatId', protect, async (req, res) => {
   try {
     const chat = await Chat.findById(req.params.chatId)
-      .populate('patient', 'name email')
-      .populate('doctor', 'name speciality')
+      .populate('patient', 'name email image')
+      .populate('doctor', 'name speciality image')
       .populate('appointment', 'appointmentDate appointmentTime status')
       .populate('messages.sender', 'name');
 
@@ -294,18 +300,117 @@ router.get('/test/check-chats', protect, async (req, res) => {
       console.log(`Chat ${chat._id}: Patient ${chat.patient?.name} (${chat.patient?._id}) - Doctor ${chat.doctor?.name} (${chat.doctor?._id})`);
     });
     
+    // Get user's chats specifically
+    let userChats;
+    if (req.user.role === 'doctor') {
+      userChats = await Chat.find({ doctor: req.user._id })
+        .populate('patient', 'name email')
+        .populate('doctor', 'name email');
+    } else if (req.user.role === 'patient') {
+      userChats = await Chat.find({ patient: req.user._id })
+        .populate('patient', 'name email')
+        .populate('doctor', 'name email');
+    }
+    
+    console.log(`User's chats (${req.user.role}):`, userChats?.length || 0);
+    userChats?.forEach(chat => {
+      console.log(`User's chat ${chat._id}: Patient ${chat.patient?.name} (${chat.patient?._id}) - Doctor ${chat.doctor?.name} (${chat.doctor?._id})`);
+    });
+    
     res.json({
       status: 'success',
       message: 'Check console for chat details',
       totalChats: allChats.length,
+      userChats: userChats?.length || 0,
       userInfo: {
         name: req.user.name,
         role: req.user.role,
         id: req.user._id
-      }
+      },
+      userChatsData: userChats?.map(chat => ({
+        chatId: chat._id,
+        patientId: chat.patient?._id,
+        doctorId: chat.doctor?._id,
+        patientName: chat.patient?.name,
+        doctorName: chat.doctor?.name
+      })) || []
     });
   } catch (error) {
     console.error('Test endpoint error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: error.message
+    });
+  }
+});
+
+// Test endpoint for socket authorization debugging
+router.get('/test/socket-auth/:chatId', protect, async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    console.log('Socket auth test - User:', req.user.name, 'Role:', req.user.role, 'ID:', req.user._id);
+    console.log('Testing chat ID:', chatId);
+    
+    const chat = await Chat.findById(chatId)
+      .populate('patient', 'name email')
+      .populate('doctor', 'name email');
+    
+    if (!chat) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Chat not found'
+      });
+    }
+    
+    const isDoctor = req.user.role === 'doctor';
+    const isPatient = req.user.role === 'patient';
+    const chatDoctorId = chat.doctor._id.toString();
+    const chatPatientId = chat.patient._id.toString();
+    const userSocketId = req.user._id.toString();
+    
+    const hasAccess = (isDoctor && chatDoctorId === userSocketId) || (isPatient && chatPatientId === userSocketId);
+    
+    console.log('Socket auth test results:', {
+      userRole: req.user.role,
+      userSocketId,
+      chatDoctorId,
+      chatPatientId,
+      isDoctor,
+      isPatient,
+      hasAccess,
+      chatData: {
+        chatId: chat._id,
+        patientName: chat.patient.name,
+        doctorName: chat.doctor.name
+      }
+    });
+    
+    res.json({
+      status: 'success',
+      hasAccess,
+      userInfo: {
+        name: req.user.name,
+        role: req.user.role,
+        id: req.user._id
+      },
+      chatInfo: {
+        chatId: chat._id,
+        patientId: chat.patient._id,
+        doctorId: chat.doctor._id,
+        patientName: chat.patient.name,
+        doctorName: chat.doctor.name
+      },
+      authorizationCheck: {
+        isDoctor,
+        isPatient,
+        chatDoctorId,
+        chatPatientId,
+        userSocketId,
+        hasAccess
+      }
+    });
+  } catch (error) {
+    console.error('Socket auth test error:', error);
     res.status(500).json({
       status: 'error',
       message: error.message

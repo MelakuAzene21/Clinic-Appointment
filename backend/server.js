@@ -67,28 +67,88 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/reviews', reviewRoutes);
 
 // Middleware to authenticate socket connections using JWT
-io.use((socket, next) => {
+io.use(async (socket, next) => {
   const token = socket.handshake.auth.token;
   if (!token) {
     return next(new Error('Authentication error: No token provided'));
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => { // Replace with your JWT secret
-    if (err) {
-      return next(new Error('Authentication error: Invalid token'));
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Fetch user data from database (similar to auth middleware)
+    let user = await User.findById(decoded.id).select('-password');
+    
+    if (user) {
+      socket.user = user;
+      socket.user.role = user.role;
+    } else {
+      // If not found in User, try Doctor collection
+      const doctor = await Doctor.findById(decoded.id);
+      if (doctor) {
+        socket.user = doctor;
+        socket.user.role = 'doctor';
+      } else {
+        return next(new Error('Authentication error: User not found'));
+      }
     }
-    socket.user = decoded; // Attach user data (id, role, name, etc.) to socket
+
+    if (!socket.user.isActive) {
+      return next(new Error('Authentication error: User account is deactivated'));
+    }
+
+    console.log('Socket authentication - User data:', {
+      id: socket.user._id,
+      name: socket.user.name,
+      role: socket.user.role
+    });
+    
     next();
-  });
+  } catch (error) {
+    console.error('Socket authentication error:', error);
+    return next(new Error('Authentication error: Invalid token'));
+  }
 });
 
 io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.user.name} (${socket.user.role})`);
+  console.log(`User connected: ${socket.user.name} (${socket.user.role}) - ID: ${socket.user._id}`);
 
   // Join a chat room
-  socket.on('join_chat', (chatId) => {
-    socket.join(chatId);
-    console.log(`${socket.user.name} joined chat ${chatId}`);
+  socket.on('join_chat', async (chatId) => {
+    try {
+      // Verify user has access to this chat before joining
+      const chat = await Chat.findById(chatId);
+      if (!chat) {
+        console.log(`Chat ${chatId} not found`);
+        return;
+      }
+
+      const isDoctor = socket.user.role === 'doctor';
+      const isPatient = socket.user.role === 'patient';
+      const chatDoctorId = chat.doctor.toString();
+      const chatPatientId = chat.patient.toString();
+      const userSocketId = socket.user._id.toString();
+      
+      const hasAccess = (isDoctor && chatDoctorId === userSocketId) || (isPatient && chatPatientId === userSocketId);
+      
+      console.log(`Join chat authorization check for ${socket.user.name}:`, {
+        chatId,
+        userRole: socket.user.role,
+        userSocketId,
+        chatDoctorId,
+        chatPatientId,
+        hasAccess
+      });
+
+      if (hasAccess) {
+        socket.join(chatId);
+        console.log(`${socket.user.name} joined chat ${chatId}`);
+      } else {
+        console.log(`${socket.user.name} denied access to chat ${chatId}`);
+      }
+    } catch (error) {
+      console.error('Error in join_chat:', error);
+    }
   });
 
   // Leave a chat room
@@ -108,14 +168,30 @@ io.on('connection', (socket) => {
       // Verify user is part of the chat
       const isDoctor = socket.user.role === 'doctor';
       const isPatient = socket.user.role === 'patient';
-      if (!( (isDoctor && chat.doctor.toString() === socket.user.id) || (isPatient && chat.patient.toString() === socket.user.id) )) {
+      
+      // Convert ObjectIds to strings for comparison
+      const chatDoctorId = chat.doctor.toString();
+      const chatPatientId = chat.patient.toString();
+      const userSocketId = socket.user._id.toString();
+      
+      console.log('Chat authorization check:', {
+        userRole: socket.user.role,
+        userSocketId,
+        chatDoctorId,
+        chatPatientId,
+        isDoctor,
+        isPatient,
+        isAuthorized: (isDoctor && chatDoctorId === userSocketId) || (isPatient && chatPatientId === userSocketId)
+      });
+      
+      if (!( (isDoctor && chatDoctorId === userSocketId) || (isPatient && chatPatientId === userSocketId) )) {
         return socket.emit('error', { message: 'Not authorized for this chat' });
       }
 
       // Create message
       const senderModel = isDoctor ? 'Doctor' : 'User';
       const message = {
-        sender: socket.user.id,
+        sender: socket.user._id,
         senderModel,
         content: content.trim(),
         timestamp: new Date(),

@@ -15,6 +15,17 @@ const Chat = () => {
     unreadCounts,
     isConnected 
   } = useChat();
+
+  // Add error boundary for debugging
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-gray-600">User not found</p>
+        </div>
+      </div>
+    );
+  }
   
   const [message, setMessage] = useState('');
   const messagesEndRef = useRef(null);
@@ -30,6 +41,11 @@ const Chat = () => {
 
   useEffect(() => {
     console.log('Chats updated:', chats);
+    if (chats.length > 0) {
+      console.log('First chat structure:', chats[0]);
+      console.log('First chat patient:', chats[0].patient);
+      console.log('First chat doctor:', chats[0].doctor);
+    }
   }, [chats]);
 
   useEffect(() => {
@@ -80,9 +96,9 @@ const Chat = () => {
 
   const getOtherUser = (chat) => {
     if (user.role === 'doctor') {
-      return chat.patient;
+      return chat.patient || { name: 'Unknown Patient', image: null };
     } else {
-      return chat.doctor;
+      return chat.doctor || { name: 'Unknown Doctor', image: null, speciality: 'Unknown' };
     }
   };
 
@@ -119,27 +135,27 @@ const Chat = () => {
             chats.map((chat) => {
               const otherUser = getOtherUser(chat);
               const unreadCount = unreadCounts[chat._id] || 0;
-              const lastMessage = chat.messages[chat.messages.length - 1];
+              const lastMessage = chat.messages && chat.messages.length > 0 ? chat.messages[chat.messages.length - 1] : null;
               
               return (
-                                 <div
-                   key={chat._id}
-                   onClick={() => handleChatSelect(chat)}
-                   className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors ${
-                     currentChat?._id === chat._id ? 'bg-blue-50 border-blue-200' : ''
-                   }`}
-                 >
+                <div
+                  key={chat._id}
+                  onClick={() => handleChatSelect(chat)}
+                  className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors ${
+                    currentChat?._id === chat._id ? 'bg-blue-50 border-blue-200' : ''
+                  }`}
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <img
-                        src={otherUser.image || assets.profile_pic}
-                        alt={otherUser.name}
+                        src={otherUser?.image || assets.profile_pic}
+                        alt={otherUser?.name || 'User'}
                         className="w-10 h-10 rounded-full object-cover"
                       />
                       <div>
-                        <h3 className="font-medium text-gray-900">{otherUser.name}</h3>
+                        <h3 className="font-medium text-gray-900">{otherUser?.name || 'Unknown User'}</h3>
                         <p className="text-sm text-gray-600">
-                          {user.role === 'doctor' ? 'Patient' : otherUser.speciality}
+                          {user.role === 'doctor' ? 'Patient' : (otherUser?.speciality || 'Unknown')}
                         </p>
                       </div>
                     </div>
@@ -174,16 +190,16 @@ const Chat = () => {
              <div className="p-4 border-b border-gray-200 bg-white">
                <div className="flex items-center space-x-3">
                  <img
-                   src={getOtherUser(currentChat).image || assets.profile_pic}
-                   alt={getOtherUser(currentChat).name}
+                   src={getOtherUser(currentChat)?.image || assets.profile_pic}
+                   alt={getOtherUser(currentChat)?.name || 'User'}
                    className="w-10 h-10 rounded-full object-cover"
                  />
                  <div>
                    <h3 className="font-medium text-gray-900">
-                     {getOtherUser(currentChat).name}
+                     {getOtherUser(currentChat)?.name || 'Unknown User'}
                    </h3>
                    <p className="text-sm text-gray-600">
-                     {user.role === 'doctor' ? 'Patient' : getOtherUser(currentChat).speciality}
+                     {user.role === 'doctor' ? 'Patient' : (getOtherUser(currentChat)?.speciality || 'Unknown')}
                    </p>
                  </div>
                 <div className="ml-auto">
@@ -194,14 +210,14 @@ const Chat = () => {
 
                          {/* Messages */}
              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-               {currentChat.messages.length === 0 ? (
+               {!currentChat.messages || currentChat.messages.length === 0 ? (
                 <div className="text-center text-gray-500 mt-8">
                   <img src={assets.chats_icon} alt="Start chat" className="w-16 h-16 mx-auto mb-2 opacity-50" />
                   <p>No messages yet</p>
                   <p className="text-sm">Start the conversation!</p>
                 </div>
                              ) : (
-                 currentChat.messages.map((msg, index) => {
+                 (currentChat.messages || []).map((msg, index) => {
                    // Handle both populated and unpopulated sender objects
                    const senderId = msg.sender?._id || msg.sender;
                    const isOwnMessage = senderId === user._id;

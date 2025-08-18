@@ -16,6 +16,7 @@ import Appointment from './pages/Appointment'
 import AdminDashboard from './pages/AdminDashboard'
 import DoctorDashboard from './pages/DoctorDashboard'
 import ChatPage from './pages/ChatPage'
+import ChatDebug from './pages/ChatDebug'
 
 // Protected Route Component for role-specific pages
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
@@ -126,6 +127,16 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['doctor', 'patient']}>
                 <ChatPage />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Debug Routes */}
+          <Route 
+            path="/chat-debug" 
+            element={
+              <ProtectedRoute allowedRoles={['doctor', 'patient']}>
+                <ChatDebug />
               </ProtectedRoute>
             } 
           />

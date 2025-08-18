@@ -116,7 +116,11 @@ export const ChatProvider = ({ children }) => {
 
       newSocket.on('error', (error) => {
         console.error('Socket error:', error);
-        toast.error(error.message || 'Chat connection error');
+        if (error.message === 'Not authorized for this chat') {
+          toast.error('You are not authorized to send messages in this chat. Please check your permissions.');
+        } else {
+          toast.error(error.message || 'Chat connection error');
+        }
       });
 
       setSocket(newSocket);
@@ -140,12 +144,22 @@ export const ChatProvider = ({ children }) => {
       if (response.ok) {
         const data = await response.json();
         console.log('Fetched chats:', data.data);
-        setChats(data.data);
+        
+        // Validate chat data and add fallbacks for missing user data
+        const validatedChats = data.data.map(chat => ({
+          ...chat,
+          patient: chat.patient || { name: 'Unknown Patient', image: null },
+          doctor: chat.doctor || { name: 'Unknown Doctor', image: null, speciality: 'Unknown' },
+          messages: chat.messages || []
+        }));
+        
+        console.log('Validated chats:', validatedChats);
+        setChats(validatedChats);
         
         // Calculate unread counts
         const counts = {};
         data.data.forEach(chat => {
-          counts[chat._id] = chat.messages.filter(msg => !msg.isRead).length;
+          counts[chat._id] = (chat.messages || []).filter(msg => !msg.isRead).length;
         });
         setUnreadCounts(counts);
       } else {
@@ -182,6 +196,8 @@ export const ChatProvider = ({ children }) => {
   const sendMessage = (chatId, content) => {
     if (socket && chatId && content.trim()) {
       console.log(`Sending message to chat ${chatId}: ${content}`);
+      console.log('Current user:', user);
+      console.log('Socket connected:', socket.connected);
       
       // Create a temporary message for immediate UI update
       const tempMessage = {
