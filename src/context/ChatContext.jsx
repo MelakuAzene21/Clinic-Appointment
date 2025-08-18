@@ -47,15 +47,32 @@ export const ChatProvider = ({ children }) => {
       newSocket.on('new_message', (data) => {
         const { chatId, message, senderName } = data;
         console.log('Received new message:', data);
+        console.log('Current user ID:', user._id);
+        console.log('Message sender:', message.sender);
+        console.log('Message sender ID:', message.sender?._id);
+        
+        // Check if this message is from the current user
+        const isOwnMessage = message.sender === user._id || message.sender?._id === user._id;
+        console.log('Is own message:', isOwnMessage);
         
         setChats(prevChats => {
           return prevChats.map(chat => {
             if (chat._id === chatId) {
-              return {
-                ...chat,
-                messages: [...chat.messages, message],
-                lastMessage: new Date()
-              };
+              // If it's our own message, replace any temporary messages with the real one
+              if (isOwnMessage) {
+                const filteredMessages = chat.messages.filter(msg => !msg.isTemp);
+                return {
+                  ...chat,
+                  messages: [...filteredMessages, message],
+                  lastMessage: new Date()
+                };
+              } else {
+                return {
+                  ...chat,
+                  messages: [...chat.messages, message],
+                  lastMessage: new Date()
+                };
+              }
             }
             return chat;
           });
@@ -64,25 +81,33 @@ export const ChatProvider = ({ children }) => {
         // Update current chat if it's the active one
         setCurrentChat(prevChat => {
           if (prevChat?._id === chatId) {
-            return {
-              ...prevChat,
-              messages: [...prevChat.messages, message],
-              lastMessage: new Date()
-            };
+            // If it's our own message, replace any temporary messages with the real one
+            if (isOwnMessage) {
+              const filteredMessages = prevChat.messages.filter(msg => !msg.isTemp);
+              return {
+                ...prevChat,
+                messages: [...filteredMessages, message],
+                lastMessage: new Date()
+              };
+            } else {
+              return {
+                ...prevChat,
+                messages: [...prevChat.messages, message],
+                lastMessage: new Date()
+              };
+            }
           }
           return prevChat;
         });
 
-        // Update unread count if not in current chat
-        if (currentChat?._id !== chatId) {
+        // Only update unread count and show notification if it's NOT from the current user
+        if (!isOwnMessage && currentChat?._id !== chatId) {
           setUnreadCounts(prev => ({
             ...prev,
             [chatId]: (prev[chatId] || 0) + 1
           }));
-        }
 
-        // Show notification if not in current chat
-        if (currentChat?._id !== chatId) {
+          // Show notification only for messages from other users
           toast.info(`New message from ${senderName}`, {
             position: "top-right",
             autoClose: 3000
@@ -92,17 +117,27 @@ export const ChatProvider = ({ children }) => {
 
       newSocket.on('message_notification', (data) => {
         const { chatId, senderName, content, unreadCount } = data;
+        console.log('Received message notification:', data);
+        console.log('Current user name:', user.name);
+        console.log('Sender name:', senderName);
         
-        setUnreadCounts(prev => ({
-          ...prev,
-          [chatId]: unreadCount
-        }));
+        // Check if this notification is from the current user
+        const isOwnNotification = senderName === user.name;
+        console.log('Is own notification:', isOwnNotification);
+        
+        // Only update unread count and show notification if it's NOT from the current user
+        if (!isOwnNotification) {
+          setUnreadCounts(prev => ({
+            ...prev,
+            [chatId]: unreadCount
+          }));
 
-        // Show notification
-        toast.info(`${senderName}: ${content}`, {
-          position: "top-right",
-          autoClose: 5000
-        });
+          // Show notification only for messages from other users
+          toast.info(`${senderName}: ${content}`, {
+            position: "top-right",
+            autoClose: 5000
+          });
+        }
       });
 
       newSocket.on('user_typing', (data) => {
@@ -201,12 +236,13 @@ export const ChatProvider = ({ children }) => {
       
       // Create a temporary message for immediate UI update
       const tempMessage = {
-        _id: Date.now().toString(), // Temporary ID
+        _id: `temp_${Date.now()}`, // Temporary ID with prefix
         sender: user._id,
         senderModel: user.role === 'doctor' ? 'Doctor' : 'User',
         content: content.trim(),
         timestamp: new Date(),
-        isRead: false
+        isRead: false,
+        isTemp: true // Flag to identify temporary messages
       };
 
       // Add message to current chat immediately for better UX

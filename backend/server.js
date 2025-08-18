@@ -216,14 +216,13 @@ io.on('connection', (socket) => {
         senderName: socket.user.name
       });
 
-      // Send notification to the recipient (if not in the current chat, but client handles visibility)
+      // Send notification to the recipient only (not to the sender)
       const recipientId = isDoctor ? chat.patient.toString() : chat.doctor.toString();
-      // You can emit 'message_notification' to specific user if you track online users, but for now, rely on room emission
-      io.to(chatId).emit('message_notification', {
+      socket.to(chatId).emit('message_notification', {
         chatId,
         senderName: socket.user.name,
         content: message.content,
-        unreadCount: chat.messages.filter(msg => !msg.isRead && msg.sender.toString() !== recipientId).length // Simplified; adjust as needed
+        unreadCount: chat.messages.filter(msg => !msg.isRead && msg.sender.toString() !== recipientId).length
       });
 
       console.log(`Message sent in chat ${chatId} by ${socket.user.name}`);

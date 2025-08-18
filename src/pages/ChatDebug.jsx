@@ -48,6 +48,17 @@ const ChatDebug = () => {
     }
   };
 
+  const testMessageSending = (chatId) => {
+    if (currentChat && currentChat._id === chatId) {
+      console.log('Testing message sending to chat:', chatId);
+      // This will trigger the sendMessage function
+      // You can manually test by typing a message and sending it
+      alert('Please type a test message and send it to verify the functionality.');
+    } else {
+      alert('Please select the chat first before testing message sending.');
+    }
+  };
+
   return (
     <div className="container mx-auto p-6">
       <h1 className="text-2xl font-bold mb-6">Chat Debug Page</h1>
@@ -125,12 +136,18 @@ const ChatDebug = () => {
                 <p><strong>Patient:</strong> {chat.patient?.name} ({chat.patient?._id})</p>
                 <p><strong>Doctor:</strong> {chat.doctor?.name} ({chat.doctor?._id})</p>
                 <p><strong>Messages:</strong> {chat.messages?.length || 0}</p>
-                <button
-                  onClick={() => testSocketAuth(chat._id)}
-                  className="mt-2 px-3 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600"
-                >
-                  Test Auth for this Chat
-                </button>
+                                 <button
+                   onClick={() => testSocketAuth(chat._id)}
+                   className="mt-2 px-3 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600 mr-2"
+                 >
+                   Test Auth for this Chat
+                 </button>
+                 <button
+                   onClick={() => testMessageSending(chat._id)}
+                   className="mt-2 px-3 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600"
+                 >
+                   Test Message Sending
+                 </button>
               </div>
             ))}
           </div>
