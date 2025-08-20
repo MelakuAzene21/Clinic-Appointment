@@ -997,6 +997,195 @@ router.put('/:id/status', protect, [
   }
 });
 
+// @desc    Cancel appointment (patient only)
+// @route   PUT /api/appointments/:id/cancel
+// @access  Private (Patient only)
+router.put('/:id/cancel', protect, [
+  body('cancellationReason').optional().isLength({ max: 500 }).withMessage('Cancellation reason cannot exceed 500 characters')
+], async (req, res) => {
+  try {
+    const { cancellationReason } = req.body;
+
+    const appointment = await Appointment.findById(req.params.id);
+
+    if (!appointment) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Appointment not found'
+      });
+    }
+
+    // Only the patient who booked the appointment can cancel it
+    if (appointment.patient.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Not authorized to cancel this appointment'
+      });
+    }
+
+    // Check if appointment can be cancelled
+    if (appointment.status === 'cancelled') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Appointment is already cancelled'
+      });
+    }
+
+    if (appointment.status === 'completed') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Cannot cancel a completed appointment'
+      });
+    }
+
+    // Check if appointment is within cancellation window (24 hours before)
+    const appointmentDateTime = new Date(appointment.appointmentDate);
+    appointmentDateTime.setHours(parseInt(appointment.appointmentTime.split(':')[0]));
+    appointmentDateTime.setMinutes(parseInt(appointment.appointmentTime.split(':')[1]));
+    
+    const now = new Date();
+    const hoursUntilAppointment = (appointmentDateTime - now) / (1000 * 60 * 60);
+    
+    if (hoursUntilAppointment < 24) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Appointments can only be cancelled at least 24 hours before the scheduled time'
+      });
+    }
+
+    // Update appointment
+    appointment.status = 'cancelled';
+    appointment.cancellationReason = cancellationReason || 'Cancelled by patient';
+    appointment.cancelledBy = 'patient';
+
+    await appointment.save();
+
+    const updatedAppointment = await Appointment.findById(appointment._id)
+      .populate('doctor', 'name speciality image fees')
+      .populate('patient', 'name email phone');
+
+    res.json({
+      status: 'success',
+      data: updatedAppointment,
+      message: 'Appointment cancelled successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message
+    });
+  }
+});
+
+// @desc    Reschedule appointment (patient only)
+// @route   PUT /api/appointments/:id/reschedule
+// @access  Private (Patient only)
+router.put('/:id/reschedule', protect, [
+  body('appointmentDate').isISO8601().withMessage('Valid appointment date is required'),
+  body('appointmentTime').matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).withMessage('Valid appointment time is required')
+], async (req, res) => {
+  try {
+    const { appointmentDate, appointmentTime } = req.body;
+
+    const appointment = await Appointment.findById(req.params.id);
+
+    if (!appointment) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Appointment not found'
+      });
+    }
+
+    // Only the patient who booked the appointment can reschedule it
+    if (appointment.patient.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Not authorized to reschedule this appointment'
+      });
+    }
+
+    // Check if appointment can be rescheduled
+    if (appointment.status === 'cancelled') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Cannot reschedule a cancelled appointment'
+      });
+    }
+
+    if (appointment.status === 'completed') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Cannot reschedule a completed appointment'
+      });
+    }
+
+    // Check if appointment is within rescheduling window (24 hours before)
+    const appointmentDateTime = new Date(appointment.appointmentDate);
+    appointmentDateTime.setHours(parseInt(appointment.appointmentTime.split(':')[0]));
+    appointmentDateTime.setMinutes(parseInt(appointment.appointmentTime.split(':')[1]));
+    
+    const now = new Date();
+    const hoursUntilAppointment = (appointmentDateTime - now) / (1000 * 60 * 60);
+    
+    if (hoursUntilAppointment < 24) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Appointments can only be rescheduled at least 24 hours before the scheduled time'
+      });
+    }
+
+    // Check if new date/time is in the future
+    const newAppointmentDateTime = new Date(appointmentDate);
+    newAppointmentDateTime.setHours(parseInt(appointmentTime.split(':')[0]));
+    newAppointmentDateTime.setMinutes(parseInt(appointmentTime.split(':')[1]));
+    
+    if (newAppointmentDateTime <= now) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'New appointment date and time must be in the future'
+      });
+    }
+
+    // Check if the new time slot is available for the doctor
+    const conflictingAppointment = await Appointment.findOne({
+      doctor: appointment.doctor,
+      appointmentDate: new Date(appointmentDate),
+      appointmentTime: appointmentTime,
+      status: { $in: ['pending', 'confirmed'] },
+      _id: { $ne: appointment._id }
+    });
+
+    if (conflictingAppointment) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'This time slot is not available. Please choose a different time.'
+      });
+    }
+
+    // Update appointment
+    appointment.appointmentDate = new Date(appointmentDate);
+    appointment.appointmentTime = appointmentTime;
+    appointment.status = 'pending'; // Reset to pending for doctor confirmation
+
+    await appointment.save();
+
+    const updatedAppointment = await Appointment.findById(appointment._id)
+      .populate('doctor', 'name speciality image fees')
+      .populate('patient', 'name email phone');
+
+    res.json({
+      status: 'success',
+      data: updatedAppointment,
+      message: 'Appointment rescheduled successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message
+    });
+  }
+});
+
 // @desc    Add prescription to appointment (admin/doctor)
 // @route   PUT /api/appointments/:id/prescription
 // @access  Private/Admin|Doctor

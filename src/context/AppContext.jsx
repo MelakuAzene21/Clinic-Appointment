@@ -172,6 +172,39 @@ const AppContextProvider = (props) => {
     }
   };
 
+  // Cancel appointment (patient only)
+  const cancelAppointment = async (appointmentId, cancellationReason) => {
+    try {
+      const response = await axios.put(`/appointments/${appointmentId}/cancel`, { 
+        cancellationReason: cancellationReason || 'Cancelled by patient' 
+      });
+      return { success: true, data: response.data.data, message: response.data.message };
+    } catch (err) {
+      console.error('Error cancelling appointment:', err);
+      return { 
+        success: false, 
+        message: err.response?.data?.message || 'Failed to cancel appointment' 
+      };
+    }
+  };
+
+  // Reschedule appointment (patient only)
+  const rescheduleAppointment = async (appointmentId, appointmentDate, appointmentTime) => {
+    try {
+      const response = await axios.put(`/appointments/${appointmentId}/reschedule`, { 
+        appointmentDate, 
+        appointmentTime 
+      });
+      return { success: true, data: response.data.data, message: response.data.message };
+    } catch (err) {
+      console.error('Error rescheduling appointment:', err);
+      return { 
+        success: false, 
+        message: err.response?.data?.message || 'Failed to reschedule appointment' 
+      };
+    }
+  };
+
   // Add prescription (doctor)
   const addPrescription = async (appointmentId, prescriptionData) => {
     try {
@@ -358,6 +391,8 @@ const AppContextProvider = (props) => {
     fetchDoctors,
     getDoctorAppointments,
     updateAppointmentStatus,
+    cancelAppointment,
+    rescheduleAppointment,
     addPrescription,
     registerDoctor,
     getDoctorPatients,

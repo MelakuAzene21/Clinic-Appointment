@@ -5,9 +5,10 @@ import { useChat } from '../context/ChatContext'
 import { useNavigate } from 'react-router-dom'
 import assets from '../assets/assets'
 import ReviewForm from '../components/ReviewForm'
+import AppointmentActions from '../components/AppointmentActions'
 
 const MyAppointments = () => {
-  const { getUserAppointments, submitReview, token } = useContext(AppContext)
+  const { getUserAppointments, submitReview, cancelAppointment, rescheduleAppointment, token } = useContext(AppContext)
   const { createChat } = useChat()
   const navigate = useNavigate()
   const [appointments, setAppointments] = useState([])
@@ -16,6 +17,8 @@ const MyAppointments = () => {
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [selectedAppointment, setSelectedAppointment] = useState(null)
   const [submittingReview, setSubmittingReview] = useState(false)
+  const [showAppointmentActions, setShowAppointmentActions] = useState(false)
+  const [appointmentForActions, setAppointmentForActions] = useState(null)
 
   useEffect(() => {
     const fetchAppointments = async () => {
@@ -59,6 +62,22 @@ const MyAppointments = () => {
     }
   }
 
+  const canCancelOrReschedule = (appointment) => {
+    if (appointment.status === 'cancelled' || appointment.status === 'completed') {
+      return false
+    }
+
+    // Check if appointment is within 24 hours
+    const appointmentDateTime = new Date(appointment.appointmentDate)
+    appointmentDateTime.setHours(parseInt(appointment.appointmentTime.split(':')[0]))
+    appointmentDateTime.setMinutes(parseInt(appointment.appointmentTime.split(':')[1]))
+    
+    const now = new Date()
+    const hoursUntilAppointment = (appointmentDateTime - now) / (1000 * 60 * 60)
+    
+    return hoursUntilAppointment >= 24
+  }
+
   const formatDate = (dateString) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
@@ -100,6 +119,49 @@ const MyAppointments = () => {
       setError('Failed to submit review. Please try again.')
     } finally {
       setSubmittingReview(false)
+    }
+  }
+
+  const handleAppointmentActions = (appointment) => {
+    setAppointmentForActions(appointment)
+    setShowAppointmentActions(true)
+  }
+
+  const handleCancelAppointment = async (appointmentId, cancellationReason) => {
+    try {
+      const result = await cancelAppointment(appointmentId, cancellationReason)
+      if (result.success) {
+        // Refresh appointments to show updated data
+        const result = await getUserAppointments()
+        if (result.success) {
+          setAppointments(result.data)
+        }
+        setShowAppointmentActions(false)
+        setAppointmentForActions(null)
+      }
+      return result
+    } catch (err) {
+      setError('Failed to cancel appointment. Please try again.')
+      return { success: false, message: 'Failed to cancel appointment' }
+    }
+  }
+
+  const handleRescheduleAppointment = async (appointmentId, appointmentDate, appointmentTime) => {
+    try {
+      const result = await rescheduleAppointment(appointmentId, appointmentDate, appointmentTime)
+      if (result.success) {
+        // Refresh appointments to show updated data
+        const result = await getUserAppointments()
+        if (result.success) {
+          setAppointments(result.data)
+        }
+        setShowAppointmentActions(false)
+        setAppointmentForActions(null)
+      }
+      return result
+    } catch (err) {
+      setError('Failed to reschedule appointment. Please try again.')
+      return { success: false, message: 'Failed to reschedule appointment' }
     }
   }
 
@@ -192,6 +254,19 @@ const MyAppointments = () => {
                     Chat
                   </button>
                   
+                  {/* Appointment Actions Button for pending/confirmed appointments */}
+                  {canCancelOrReschedule(appointment) && (
+                    <button
+                      onClick={() => handleAppointmentActions(appointment)}
+                      className="mt-2 flex items-center gap-2 bg-orange-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-orange-600 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+                      </svg>
+                      Actions
+                    </button>
+                  )}
+                  
                   {/* Review Button for completed appointments */}
                   {appointment.status === 'completed' && appointment.prescription && (
                     <button
@@ -232,6 +307,21 @@ const MyAppointments = () => {
                   )}
                 </div>
               )}
+
+              {/* Cancellation Details */}
+              {appointment.status === 'cancelled' && (
+                <div className="mt-4 p-4 bg-red-50 rounded-lg border border-red-200">
+                  <h4 className="font-medium text-red-900 mb-2">Cancellation Details</h4>
+                  {appointment.cancellationReason && (
+                    <p className="text-sm text-red-700 mb-2">
+                      <span className="font-medium">Reason:</span> {appointment.cancellationReason}
+                    </p>
+                  )}
+                  <p className="text-sm text-red-700">
+                    <span className="font-medium">Cancelled by:</span> {appointment.cancelledBy === 'patient' ? 'You' : appointment.cancelledBy}
+                  </p>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -247,6 +337,19 @@ const MyAppointments = () => {
             setSelectedAppointment(null)
           }}
           isSubmitting={submittingReview}
+        />
+      )}
+
+      {/* Appointment Actions Modal */}
+      {showAppointmentActions && appointmentForActions && (
+        <AppointmentActions
+          appointment={appointmentForActions}
+          onCancel={handleCancelAppointment}
+          onReschedule={handleRescheduleAppointment}
+          onClose={() => {
+            setShowAppointmentActions(false)
+            setAppointmentForActions(null)
+          }}
         />
       )}
     </div>
