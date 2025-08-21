@@ -1,6 +1,7 @@
 import express from 'express';
 import { body } from 'express-validator';
 import Doctor from '../models/Doctor.js';
+import Appointment from '../models/Appointment.js';
 import { protect } from '../middleware/auth.js';
 import { authorize } from '../middleware/authorize.js';
 
@@ -185,35 +186,109 @@ router.get('/:id/slots', async (req, res) => {
       });
     }
     
-    // Generate time slots for the given date
-    const slots = [];
     const selectedDate = date ? new Date(date) : new Date();
-    const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'lowercase' });
-    
-    // Default availability: 10 AM to 9 PM, 30-minute slots
-    const startHour = 10;
-    const endHour = 21;
-    
-    for (let hour = startHour; hour < endHour; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) {
-        const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+    selectedDate.setHours(0,0,0,0);
+
+    // Days off check
+    const isDayOff = (doctor.availability?.daysOff || []).some(d => {
+      const off = new Date(d);
+      off.setHours(0,0,0,0);
+      return off.getTime() === selectedDate.getTime();
+    });
+
+    // Determine weekday key
+    const weekday = ['sun','mon','tue','wed','thu','fri','sat'][selectedDate.getDay()];
+    const dayConfig = doctor.availability?.workingHours?.[weekday];
+
+    if (isDayOff || !dayConfig || dayConfig.isWorking === false) {
+      return res.json({
+        status: 'success',
+        data: { doctor: doctor._id, date: selectedDate.toISOString().split('T')[0], slots: [] }
+      });
+    }
+
+    const slotDuration = Math.max(5, Math.min(240, doctor.availability?.slotDurationMinutes || 30));
+
+    // Build start/end Date objects from HH:mm
+    const [startH, startM] = (dayConfig.start || '10:00').split(':').map(n => parseInt(n));
+    const [endH, endM] = (dayConfig.end || '21:00').split(':').map(n => parseInt(n));
+    const start = new Date(selectedDate);
+    start.setHours(startH, startM, 0, 0);
+    const end = new Date(selectedDate);
+    end.setHours(endH, endM, 0, 0);
+
+    // Prevent past slots for today
+    const now = new Date();
+    let cursor = new Date(start);
+    if (selectedDate.toDateString() === now.toDateString() && cursor < now) {
+      const minutesPast = Math.ceil((now.getTime() - cursor.getTime()) / (1000 * 60));
+      const steps = Math.ceil(minutesPast / slotDuration);
+      cursor = new Date(cursor.getTime() + steps * slotDuration * 60000);
+    }
+
+    // Fetch booked appointments for the day
+    const booked = await Appointment.find({
+      doctor: doctor._id,
+      appointmentDate: selectedDate,
+      status: { $in: ['pending', 'confirmed'] }
+    }).select('appointmentTime');
+    const bookedTimes = new Set(booked.map(a => a.appointmentTime));
+
+    const slots = [];
+    while (cursor < end) {
+      const hh = cursor.getHours().toString().padStart(2, '0');
+      const mm = cursor.getMinutes().toString().padStart(2, '0');
+      const time = `${hh}:${mm}`;
+      if (!bookedTimes.has(time)) {
         slots.push(time);
       }
+      cursor = new Date(cursor.getTime() + slotDuration * 60000);
     }
-    
-    res.json({
+
+    return res.json({
       status: 'success',
-      data: {
-        doctor: doctor._id,
-        date: selectedDate.toISOString().split('T')[0],
-        slots
-      }
+      data: { doctor: doctor._id, date: selectedDate.toISOString().split('T')[0], slots }
     });
   } catch (error) {
     res.status(500).json({
       status: 'error',
       message: error.message
     });
+  }
+});
+
+// @desc    Get my availability (doctor)
+// @route   GET /api/doctors/me/availability
+// @access  Private/Doctor
+router.get('/me/availability', protect, authorize('doctor'), async (req, res) => {
+  try {
+    const doctor = await Doctor.findOne({ email: req.user.email });
+    if (!doctor) {
+      return res.status(404).json({ status: 'error', message: 'Doctor not found' });
+    }
+    return res.json({ status: 'success', data: doctor.availability || {} });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+// @desc    Update my availability (doctor)
+// @route   PUT /api/doctors/me/availability
+// @access  Private/Doctor
+router.put('/me/availability', protect, authorize('doctor'), async (req, res) => {
+  try {
+    const updates = req.body?.availability || req.body;
+    const doctor = await Doctor.findOneAndUpdate(
+      { email: req.user.email },
+      { $set: { availability: updates } },
+      { new: true, runValidators: true }
+    );
+    if (!doctor) {
+      return res.status(404).json({ status: 'error', message: 'Doctor not found' });
+    }
+    return res.json({ status: 'success', data: doctor.availability || {} });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
   }
 });
 

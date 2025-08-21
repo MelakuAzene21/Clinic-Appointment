@@ -265,6 +265,48 @@ const AppContextProvider = (props) => {
     }
   };
 
+  // Doctor availability: get my availability
+  const getDoctorAvailability = async () => {
+    try {
+      const response = await axios.get('/doctors/me/availability');
+      return { success: true, data: response.data.data };
+    } catch (err) {
+      console.error('Error fetching doctor availability:', err);
+      return {
+        success: false,
+        message: err.response?.data?.message || 'Failed to fetch availability'
+      };
+    }
+  };
+
+  // Doctor availability: update my availability
+  const updateDoctorAvailability = async (availability) => {
+    try {
+      const response = await axios.put('/doctors/me/availability', { availability });
+      return { success: true, data: response.data.data };
+    } catch (err) {
+      console.error('Error updating doctor availability:', err);
+      return {
+        success: false,
+        message: err.response?.data?.message || 'Failed to update availability'
+      };
+    }
+  };
+
+  // Public: get doctor slots for a date
+  const getDoctorSlots = async (doctorId, date) => {
+    try {
+      const response = await axios.get(`/doctors/${doctorId}/slots?date=${date}`);
+      return { success: true, data: response.data.data };
+    } catch (err) {
+      console.error('Error fetching doctor slots:', err);
+      return {
+        success: false,
+        message: err.response?.data?.message || 'Failed to fetch slots'
+      };
+    }
+  };
+
   // Admin dashboard functions
   const getAdminStats = async () => {
     try {
@@ -397,6 +439,9 @@ const AppContextProvider = (props) => {
     registerDoctor,
     getDoctorPatients,
     getDoctorEarnings,
+    getDoctorAvailability,
+    updateDoctorAvailability,
+    getDoctorSlots,
     getAdminStats,
     getAdminPatients,
     getAdminAppointments,

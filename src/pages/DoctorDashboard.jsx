@@ -4,7 +4,7 @@ import { useChat } from '../context/ChatContext';
 import assets from '../assets/assets';
 
 const DoctorDashboard = () => {
-  const { user, getDoctorAppointments, updateAppointmentStatus, addPrescription, updateProfile, getDoctorPatients, getDoctorEarnings } = useContext(AppContext);
+  const { user, getDoctorAppointments, updateAppointmentStatus, addPrescription, updateProfile, getDoctorPatients, getDoctorEarnings, getDoctorAvailability, updateDoctorAvailability } = useContext(AppContext);
   const chatContext = useChat();
   const { createChat, chats, currentChat, setCurrentChat, sendMessage, isConnected, unreadCounts } = chatContext;
   
@@ -34,6 +34,69 @@ const DoctorDashboard = () => {
     recommendations: '',
     nextVisit: ''
   });
+  const [availability, setAvailability] = useState({
+    slotDurationMinutes: 30,
+    workingHours: {
+      mon: { isWorking: true, start: '10:00', end: '21:00' },
+      tue: { isWorking: true, start: '10:00', end: '21:00' },
+      wed: { isWorking: true, start: '10:00', end: '21:00' },
+      thu: { isWorking: true, start: '10:00', end: '21:00' },
+      fri: { isWorking: true, start: '10:00', end: '21:00' },
+      sat: { isWorking: true, start: '10:00', end: '21:00' },
+      sun: { isWorking: true, start: '10:00', end: '21:00' }
+    },
+    daysOff: []
+  });
+
+  useEffect(() => {
+    if (activeTab === 'availability') {
+      fetchAvailability();
+    }
+  }, [activeTab]);
+
+  const fetchAvailability = async () => {
+    try {
+      const result = await getDoctorAvailability();
+      if (result.success) {
+        // Merge defaults with backend data to ensure all keys present
+        setAvailability(prev => ({
+          ...prev,
+          ...result.data,
+          workingHours: { ...prev.workingHours, ...(result.data?.workingHours || {}) }
+        }));
+      } else {
+        setError(result.message);
+      }
+    } catch (err) {
+      setError('Failed to fetch availability');
+    }
+  };
+
+  const handleAvailabilityChange = (dayKey, field, value) => {
+    setAvailability(prev => ({
+      ...prev,
+      workingHours: {
+        ...prev.workingHours,
+        [dayKey]: {
+          ...prev.workingHours[dayKey],
+          [field]: field === 'isWorking' ? value : value
+        }
+      }
+    }));
+  };
+
+  const handleSaveAvailability = async () => {
+    try {
+      const result = await updateDoctorAvailability(availability);
+      if (result.success) {
+        setSuccess('Availability updated successfully!');
+      } else {
+        setError(result.message);
+      }
+    } catch (err) {
+      setError('Failed to update availability');
+    }
+  };
 
   useEffect(() => {
     fetchAppointments();
@@ -268,12 +331,13 @@ const DoctorDashboard = () => {
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <nav className="flex space-x-8">
-            {[
+            {[ 
               { id: 'overview', name: 'Overview', icon: '📊' },
               { id: 'appointments', name: 'Appointments', icon: '📅' },
               { id: 'patients', name: 'Patients', icon: '👥' },
               { id: 'chats', name: 'Chats', icon: '💬' },
               { id: 'earnings', name: 'Earnings', icon: '💰' },
+              { id: 'availability', name: 'Availability', icon: '🗓️' },
               { id: 'profile', name: 'Profile', icon: '👤' }
             ].map((tab) => (
               <button
@@ -298,6 +362,121 @@ const DoctorDashboard = () => {
         {error && (
           <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
             {error}
+          </div>
+        )}
+
+        {/* Availability Tab */}
+        {activeTab === 'availability' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900">Manage Availability</h2>
+              <button
+                onClick={handleSaveAvailability}
+                className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                Save Changes
+              </button>
+            </div>
+
+            <div className="bg-white rounded-lg shadow p-6 space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Slot duration (minutes)</label>
+                <input
+                  type="number"
+                  min="5"
+                  max="240"
+                  value={availability.slotDurationMinutes}
+                  onChange={(e) => setAvailability(prev => ({ ...prev, slotDurationMinutes: parseInt(e.target.value || '0') }))}
+                  className="mt-1 block w-40 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[
+                  { key: 'mon', label: 'Monday' },
+                  { key: 'tue', label: 'Tuesday' },
+                  { key: 'wed', label: 'Wednesday' },
+                  { key: 'thu', label: 'Thursday' },
+                  { key: 'fri', label: 'Friday' },
+                  { key: 'sat', label: 'Saturday' },
+                  { key: 'sun', label: 'Sunday' }
+                ].map(day => (
+                  <div key={day.key} className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-medium text-gray-900">{day.label}</h3>
+                      <label className="inline-flex items-center cursor-pointer">
+                        <span className="mr-2 text-sm text-gray-600">Working</span>
+                        <input
+                          type="checkbox"
+                          checked={availability.workingHours?.[day.key]?.isWorking}
+                          onChange={(e) => handleAvailabilityChange(day.key, 'isWorking', e.target.checked)}
+                          className="h-4 w-4 text-primary border-gray-300 rounded"
+                        />
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700">Start</label>
+                        <input
+                          type="time"
+                          value={availability.workingHours?.[day.key]?.start || '10:00'}
+                          onChange={(e) => handleAvailabilityChange(day.key, 'start', e.target.value)}
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                          disabled={!availability.workingHours?.[day.key]?.isWorking}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700">End</label>
+                        <input
+                          type="time"
+                          value={availability.workingHours?.[day.key]?.end || '21:00'}
+                          onChange={(e) => handleAvailabilityChange(day.key, 'end', e.target.value)}
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                          disabled={!availability.workingHours?.[day.key]?.isWorking}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Days Off</label>
+                <div className="space-y-2">
+                  {(availability.daysOff || []).map((d, idx) => (
+                    <div key={idx} className="flex items-center space-x-2">
+                      <input
+                        type="date"
+                        value={new Date(d).toISOString().split('T')[0]}
+                        onChange={(e) => {
+                          const v = e.target.value
+                          setAvailability(prev => {
+                            const next = [...(prev.daysOff || [])]
+                            next[idx] = new Date(v)
+                            return { ...prev, daysOff: next }
+                          })
+                        }}
+                        className="border border-gray-300 rounded-md px-3 py-2"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setAvailability(prev => ({ ...prev, daysOff: (prev.daysOff || []).filter((_, i) => i !== idx) }))}
+                        className="text-red-600 text-sm hover:text-red-800"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setAvailability(prev => ({ ...prev, daysOff: [...(prev.daysOff || []), new Date()] }))}
+                    className="text-primary text-sm hover:text-primary/80"
+                  >
+                    + Add Day Off
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

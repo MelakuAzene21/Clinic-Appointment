@@ -9,7 +9,7 @@ import RelatedDoctors from '../components/RelatedDoctors'
 const Appointment = () => {
   const { docId } = useParams()
   const navigate = useNavigate()
-  const { doctors, currencySymbol, createAppointment, user, token } = useContext(AppContext)
+  const { doctors, currencySymbol, createAppointment, user, token, getDoctorSlots } = useContext(AppContext)
   const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
   const [docInfo, setDocInfo] = useState(null)
@@ -28,35 +28,23 @@ const Appointment = () => {
 
   const getAvailableSlots = async () => {
     setDocSlots([])
-    let today = new Date()
-
+    const today = new Date()
+    const collected = []
     for (let i = 0; i < 7; i++) {
-      let currentDate = new Date(today)
-      currentDate.setDate(today.getDate() + i)
-      let endTime = new Date()
-      endTime.setDate(today.getDate() + i)
-      endTime.setHours(21, 0, 0, 0)
-
-      if (today.getDate() === currentDate.getDate()) {
-        currentDate.setHours(currentDate.getHours() > 10 ? currentDate.getHours() + 1 : 10)
-        currentDate.setMinutes(currentDate.getMinutes() > 30 ? 30 : 0)
-      } else {
-        currentDate.setHours(10)
-        currentDate.setMinutes(0)
-      }
-
-      let timeSlots = []
-
-      while (currentDate < endTime) {
-        let formattedTime = currentDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        timeSlots.push({
-          datetime: new Date(currentDate),
-          time: formattedTime
-        })
-        currentDate.setMinutes(currentDate.getMinutes() + 30)
-      }
-      setDocSlots(prev => ([...prev, timeSlots]))
+      const day = new Date(today)
+      day.setDate(today.getDate() + i)
+      const isoDate = day.toISOString().split('T')[0]
+      const resp = await getDoctorSlots(docId, isoDate)
+      const slots = resp.success ? resp.data.slots : []
+      const timeSlots = slots.map((t) => {
+        const [hh, mm] = t.split(':')
+        const d = new Date(day)
+        d.setHours(parseInt(hh), parseInt(mm), 0, 0)
+        return { datetime: d, time: t }
+      })
+      collected.push(timeSlots)
     }
+    setDocSlots(collected)
   }
 
   const handleBookAppointment = async () => {
@@ -198,7 +186,7 @@ const Appointment = () => {
               className={`text-sm font-light flex-shrink-0 px-5 py-2 rounded-full cursor-pointer ${item.time === slotTime ? 'bg-primary text-white' : 'text-gray-400 border border-gray-400'}`} 
               key={index}
             >
-              {item.time.toLowerCase()}
+              {item.time}
             </p>
           ))}
         </div>

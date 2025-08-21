@@ -87,6 +87,52 @@ const doctorSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  availability: {
+    slotDurationMinutes: {
+      type: Number,
+      default: 30,
+      min: [5, 'Slot duration must be at least 5 minutes'],
+      max: [240, 'Slot duration cannot exceed 240 minutes']
+    },
+    workingHours: {
+      mon: {
+        isWorking: { type: Boolean, default: true },
+        start: { type: String, default: '10:00' },
+        end: { type: String, default: '21:00' }
+      },
+      tue: {
+        isWorking: { type: Boolean, default: true },
+        start: { type: String, default: '10:00' },
+        end: { type: String, default: '21:00' }
+      },
+      wed: {
+        isWorking: { type: Boolean, default: true },
+        start: { type: String, default: '10:00' },
+        end: { type: String, default: '21:00' }
+      },
+      thu: {
+        isWorking: { type: Boolean, default: true },
+        start: { type: String, default: '10:00' },
+        end: { type: String, default: '21:00' }
+      },
+      fri: {
+        isWorking: { type: Boolean, default: true },
+        start: { type: String, default: '10:00' },
+        end: { type: String, default: '21:00' }
+      },
+      sat: {
+        isWorking: { type: Boolean, default: true },
+        start: { type: String, default: '10:00' },
+        end: { type: String, default: '21:00' }
+      },
+      sun: {
+        isWorking: { type: Boolean, default: true },
+        start: { type: String, default: '10:00' },
+        end: { type: String, default: '21:00' }
+      }
+    },
+    daysOff: [{ type: Date }]
   }
 }, {
   timestamps: true
