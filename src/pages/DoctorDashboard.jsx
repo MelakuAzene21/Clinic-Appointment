@@ -288,6 +288,16 @@ const DoctorDashboard = () => {
     totalEarnings: appointments.filter(apt => apt.status === 'completed').reduce((sum, apt) => sum + apt.amount, 0)
   };
 
+  const getAge = (dob) => {
+    if (!dob) return 'N/A';
+    const birth = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age < 0 || age > 120 ? 'N/A' : age;
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -600,6 +610,16 @@ const DoctorDashboard = () => {
                           <div>
                             <p className="font-medium text-gray-900">{appointment.patient?.name}</p>
                             <p className="text-sm text-gray-600">{formatDate(appointment.appointmentDate)} at {appointment.appointmentTime}</p>
+                            {appointment.symptoms && (
+                              <p className="text-xs text-gray-500 mt-1">Symptoms: {appointment.symptoms}</p>
+                            )}
+                            <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-600">
+                              <span>Age: <span className="font-medium">{getAge(appointment.patient?.dateOfBirth)}</span></span>
+                              <span>Gender: <span className="font-medium capitalize">{appointment.patient?.gender || 'N/A'}</span></span>
+                              {appointment.patient?.phone && (
+                                <span>Phone: <span className="font-medium">{appointment.patient.phone}</span></span>
+                              )}
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center space-x-3">
@@ -615,6 +635,20 @@ const DoctorDashboard = () => {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                             </svg>
                           </button>
+                          {appointment.status === 'confirmed' && (
+                            <button
+                              onClick={() => {
+                                setSelectedAppointment(appointment);
+                                setShowPrescriptionModal(true);
+                              }}
+                              className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-50 transition-colors"
+                              title="Add prescription"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                              </svg>
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -667,6 +701,16 @@ const DoctorDashboard = () => {
                               <div className="ml-4">
                                 <div className="text-sm font-medium text-gray-900">{appointment.patient?.name}</div>
                                 <div className="text-sm text-gray-500">{appointment.patient?.email}</div>
+                                {appointment.symptoms && (
+                                  <div className="text-xs text-gray-500 mt-1">Symptoms: {appointment.symptoms}</div>
+                                )}
+                                <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-600">
+                                  <span>Age: <span className="font-medium">{getAge(appointment.patient?.dateOfBirth)}</span></span>
+                                  <span>Gender: <span className="font-medium capitalize">{appointment.patient?.gender || 'N/A'}</span></span>
+                                  {appointment.patient?.phone && (
+                                    <span>Phone: <span className="font-medium">{appointment.patient.phone}</span></span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </td>
@@ -739,6 +783,19 @@ const DoctorDashboard = () => {
                 <h3 className="text-lg font-medium text-gray-900 mb-4">
                   Add Prescription for {selectedAppointment.patient?.name}
                 </h3>
+                {/* Patient Summary */}
+                <div className="mb-4 p-4 border border-gray-200 rounded bg-gray-50">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-700">
+                    <div><span className="font-medium">Age:</span> {getAge(selectedAppointment.patient?.dateOfBirth)}</div>
+                    <div><span className="font-medium">Gender:</span> <span className="capitalize">{selectedAppointment.patient?.gender || 'N/A'}</span></div>
+                    <div><span className="font-medium">Phone:</span> {selectedAppointment.patient?.phone || 'N/A'}</div>
+                    <div><span className="font-medium">Email:</span> {selectedAppointment.patient?.email || 'N/A'}</div>
+                    <div className="md:col-span-2"><span className="font-medium">Appointment:</span> {formatDate(selectedAppointment.appointmentDate)} at {selectedAppointment.appointmentTime}</div>
+                    {selectedAppointment.symptoms && (
+                      <div className="md:col-span-2"><span className="font-medium">Symptoms:</span> {selectedAppointment.symptoms}</div>
+                    )}
+                  </div>
+                </div>
                 <form onSubmit={handleAddPrescription} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Diagnosis</label>

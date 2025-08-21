@@ -618,7 +618,7 @@ const isDoctorAvailable = (doctor, date, time) => {
 router.get('/doctor', protect, authorize('doctor'), async (req, res) => {
   try {
     const appointments = await Appointment.find({})
-      .populate('patient', 'name email phone')
+      .populate('patient', 'name email phone gender dateOfBirth address')
       .populate('doctor', 'name speciality email')
       .sort({ appointmentDate: 1 });
 
@@ -646,7 +646,7 @@ router.get('/doctor', protect, authorize('doctor'), async (req, res) => {
 router.get('/doctor/patients', protect, authorize('doctor'), async (req, res) => {
   try {
     const appointments = await Appointment.find({})
-      .populate('patient', 'name email phone')
+      .populate('patient', 'name email phone gender dateOfBirth address')
       .populate('doctor', 'email')
       .sort({ appointmentDate: -1 });
 
