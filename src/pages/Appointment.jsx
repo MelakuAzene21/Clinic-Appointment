@@ -18,6 +18,7 @@ const Appointment = () => {
   const [slotTime, setSlotTime] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
   const [symptoms, setSymptoms] = useState('')
   const [notes, setNotes] = useState('')
 
@@ -45,6 +46,17 @@ const Appointment = () => {
       collected.push(timeSlots)
     }
     setDocSlots(collected)
+    // pick first day with available slots
+    const firstAvailableIndex = collected.findIndex(arr => (arr && arr.length > 0))
+    if (firstAvailableIndex >= 0) {
+      setSlotIndex(firstAvailableIndex)
+      setSlotTime('')
+      setInfo('')
+    } else {
+      setSlotIndex(0)
+      setSlotTime('')
+      setInfo('No available slots in the next 7 days. Please check back later or choose another doctor.')
+    }
   }
 
   const handleBookAppointment = async () => {
@@ -160,35 +172,55 @@ const Appointment = () => {
       <div className='sm:ml-72 sm:pl-4 mt-4 font-medium text-gray-700'>
         <p>Booking Slots</p>
         
-        {error && (
+        {(error || info) && (
           <div className='w-full p-3 bg-red-100 border border-red-400 text-red-700 rounded mt-4'>
-            {error}
+            {error || info}
           </div>
         )}
 
         <div className='flex gap-3 items-center w-full overflow-x-scroll mt-4'>
-          {docSlots.length && docSlots.map((item, index) => (
-            <div 
-              onClick={() => setSlotIndex(index)} 
-              className={`text-center py-6 min-w-16 rounded-full cursor-pointer ${slotIndex === index ? 'bg-primary text-white' : 'border border-gray-200'}`} 
-              key={index}
-            >
-              <p>{item[0] && daysOfWeek[item[0].datetime.getDay()]}</p>
-              <p>{item[0] && item[0].datetime.getDate()}</p>
-            </div>
-          ))}
+          {docSlots.length && docSlots.map((item, index) => {
+            const hasSlots = item && item.length > 0
+            const isSelected = slotIndex === index
+            return (
+              <div
+                onClick={() => {
+                  if (!hasSlots) {
+                    setInfo('Doctor is not working on this day.')
+                    return
+                  }
+                  setInfo('')
+                  setSlotIndex(index)
+                  setSlotTime('')
+                }}
+                className={`text-center py-6 min-w-16 rounded-full ${hasSlots ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'} ${isSelected ? 'bg-primary text-white' : 'border border-gray-200'}`}
+                key={index}
+                title={hasSlots ? '' : 'No slots available'}
+              >
+                <p>{item[0] ? daysOfWeek[item[0].datetime.getDay()] : daysOfWeek[(new Date(new Date().setDate(new Date().getDate() + index))).getDay()]}</p>
+                <p>{item[0] ? item[0].datetime.getDate() : new Date(new Date().setDate(new Date().getDate() + index)).getDate()}</p>
+                {!hasSlots && (
+                  <p className='text-[10px] mt-1'>No slots</p>
+                )}
+              </div>
+            )
+          })}
         </div>
 
         <div className='flex items-center gap-3 w-full overflow-x-scroll mt-4'>
-          {docSlots.length && docSlots[slotIndex].map((item, index) => (
-            <p 
-              onClick={() => setSlotTime(item.time)} 
-              className={`text-sm font-light flex-shrink-0 px-5 py-2 rounded-full cursor-pointer ${item.time === slotTime ? 'bg-primary text-white' : 'text-gray-400 border border-gray-400'}`} 
-              key={index}
-            >
-              {item.time}
-            </p>
-          ))}
+          {docSlots.length && docSlots[slotIndex] && docSlots[slotIndex].length > 0 ? (
+            docSlots[slotIndex].map((item, index) => (
+              <p
+                onClick={() => setSlotTime(item.time)}
+                className={`text-sm font-light flex-shrink-0 px-5 py-2 rounded-full cursor-pointer ${item.time === slotTime ? 'bg-primary text-white' : 'text-gray-400 border border-gray-400'}`}
+                key={index}
+              >
+                {item.time}
+              </p>
+            ))
+          ) : (
+            <p className='text-sm text-gray-500'>Doctor is not working on this day.</p>
+          )}
         </div>
 
         {/* Symptoms and Notes */}

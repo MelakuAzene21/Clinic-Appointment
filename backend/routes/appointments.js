@@ -567,6 +567,51 @@ import { authorize } from '../middleware/authorize.js';
 
 const router = express.Router();
 
+// Helpers for availability checks
+const timeToMinutes = (timeStr) => {
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  return hours * 60 + minutes;
+};
+
+const isSameDay = (dateA, dateB) => {
+  const d1 = new Date(dateA);
+  const d2 = new Date(dateB);
+  d1.setHours(0, 0, 0, 0);
+  d2.setHours(0, 0, 0, 0);
+  return d1.getTime() === d2.getTime();
+};
+
+const getDayKey = (date) => {
+  const d = new Date(date);
+  const idx = d.getDay(); // 0=Sun ... 6=Sat
+  return ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][idx];
+};
+
+const isDoctorAvailable = (doctor, date, time) => {
+  if (!doctor?.availability) return true; // if not configured, allow by default
+
+  // Check days off
+  const dateOnly = new Date(date);
+  dateOnly.setHours(0, 0, 0, 0);
+  if (Array.isArray(doctor.availability.daysOff)) {
+    for (const off of doctor.availability.daysOff) {
+      if (isSameDay(off, dateOnly)) return false;
+    }
+  }
+
+  // Check working hours for the day
+  const dayKey = getDayKey(date);
+  const working = doctor.availability.workingHours?.[dayKey];
+  if (!working || !working.isWorking) return false;
+
+  const minutes = timeToMinutes(time);
+  const startMins = timeToMinutes(working.start);
+  const endMins = timeToMinutes(working.end);
+
+  // Ensure appointment starts within working window
+  return minutes >= startMins && minutes < endMins;
+};
+
 // @desc    Get appointments for doctor
 // @route   GET /api/appointments/doctor
 // @access  Private/Doctor
@@ -883,6 +928,15 @@ router.post('/', protect, [
       });
     }
 
+    // Check doctor's availability (working hours and days off)
+    const available = isDoctorAvailable(doctor, appointmentDate, appointmentTime);
+    if (!available) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Doctor is not available at the selected date/time'
+      });
+    }
+
     // Check if slot is available
     const existingAppointment = await Appointment.findOne({
       doctor: doctorId,
@@ -1143,6 +1197,23 @@ router.put('/:id/reschedule', protect, [
       return res.status(400).json({
         status: 'error',
         message: 'New appointment date and time must be in the future'
+      });
+    }
+
+    // Check doctor's availability (working hours and days off)
+    const doctor = await Doctor.findById(appointment.doctor);
+    if (!doctor || !doctor.isActive) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Doctor not found or inactive'
+      });
+    }
+
+    const available = isDoctorAvailable(doctor, appointmentDate, appointmentTime);
+    if (!available) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Doctor is not available at the selected date/time'
       });
     }
 

@@ -379,6 +379,9 @@ const DoctorDashboard = () => {
             </div>
 
             <div className="bg-white rounded-lg shadow p-6 space-y-6">
+              <div className="p-4 bg-blue-50 border border-blue-200 text-blue-800 rounded">
+                Set your working days and hours here. Patients will only see slots inside these hours. Mark days off to block all bookings for those dates.
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Slot duration (minutes)</label>
                 <input
