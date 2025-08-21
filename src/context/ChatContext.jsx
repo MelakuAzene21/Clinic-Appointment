@@ -100,18 +100,23 @@ export const ChatProvider = ({ children }) => {
           return prevChat;
         });
 
-        // Only update unread count and show notification if it's NOT from the current user
-        if (!isOwnMessage && currentChat?._id !== chatId) {
-          setUnreadCounts(prev => ({
-            ...prev,
-            [chatId]: (prev[chatId] || 0) + 1
-          }));
+        // If message is from other user
+        if (!isOwnMessage) {
+          if (currentChat?._id === chatId) {
+            // If chat is open, immediately mark as read on server to persist across refresh/login
+            markMessagesAsRead(chatId);
+          } else {
+            // Otherwise increase unread count and show a notification
+            setUnreadCounts(prev => ({
+              ...prev,
+              [chatId]: (prev[chatId] || 0) + 1
+            }));
 
-          // Show notification only for messages from other users
-          toast.info(`New message from ${senderName}`, {
-            position: "top-right",
-            autoClose: 3000
-          });
+            toast.info(`New message from ${senderName}`, {
+              position: "top-right",
+              autoClose: 3000
+            });
+          }
         }
       });
 
@@ -127,16 +132,21 @@ export const ChatProvider = ({ children }) => {
         
         // Only update unread count and show notification if it's NOT from the current user
         if (!isOwnNotification) {
-        setUnreadCounts(prev => ({
-          ...prev,
-          [chatId]: unreadCount
-        }));
+          if (currentChat?._id === chatId) {
+            // If chat is open, mark as read immediately
+            markMessagesAsRead(chatId);
+          } else {
+            setUnreadCounts(prev => ({
+              ...prev,
+              [chatId]: unreadCount
+            }));
 
-          // Show notification only for messages from other users
-        toast.info(`${senderName}: ${content}`, {
-          position: "top-right",
-          autoClose: 5000
-        });
+            // Show notification only for messages from other users
+            toast.info(`${senderName}: ${content}`, {
+              position: "top-right",
+              autoClose: 5000
+            });
+          }
         }
       });
 
@@ -191,10 +201,11 @@ export const ChatProvider = ({ children }) => {
         console.log('Validated chats:', validatedChats);
         setChats(validatedChats);
         
-        // Calculate unread counts
+        // Calculate unread counts (only messages from the other participant)
         const counts = {};
+        const otherSenderModel = user?.role === 'doctor' ? 'User' : 'Doctor';
         data.data.forEach(chat => {
-          counts[chat._id] = (chat.messages || []).filter(msg => !msg.isRead).length;
+          counts[chat._id] = (chat.messages || []).filter(msg => !msg.isRead && msg.senderModel === otherSenderModel).length;
         });
         setUnreadCounts(counts);
       } else {
@@ -214,7 +225,13 @@ export const ChatProvider = ({ children }) => {
       const selectedChat = chats.find(chat => chat._id === chatId);
       setCurrentChat(selectedChat);
       
-      // Mark messages as read
+      // Optimistically clear unread badge immediately
+      setUnreadCounts(prev => ({
+        ...prev,
+        [chatId]: 0
+      }));
+
+      // Mark messages as read on server to persist across refresh/login
       markMessagesAsRead(chatId);
     }
   };
