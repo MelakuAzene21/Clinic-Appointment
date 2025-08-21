@@ -106,8 +106,8 @@ io.use(async (socket, next) => {
     next();
   } catch (error) {
     console.error('Socket authentication error:', error);
-    return next(new Error('Authentication error: Invalid token'));
-  }
+      return next(new Error('Authentication error: Invalid token'));
+    }
 });
 
 io.on('connection', (socket) => {
@@ -141,8 +141,8 @@ io.on('connection', (socket) => {
       });
 
       if (hasAccess) {
-        socket.join(chatId);
-        console.log(`${socket.user.name} joined chat ${chatId}`);
+    socket.join(chatId);
+    console.log(`${socket.user.name} joined chat ${chatId}`);
       } else {
         console.log(`${socket.user.name} denied access to chat ${chatId}`);
       }

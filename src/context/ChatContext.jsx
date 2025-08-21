@@ -67,11 +67,11 @@ export const ChatProvider = ({ children }) => {
                   lastMessage: new Date()
                 };
               } else {
-                return {
-                  ...chat,
-                  messages: [...chat.messages, message],
-                  lastMessage: new Date()
-                };
+              return {
+                ...chat,
+                messages: [...chat.messages, message],
+                lastMessage: new Date()
+              };
               }
             }
             return chat;
@@ -90,11 +90,11 @@ export const ChatProvider = ({ children }) => {
                 lastMessage: new Date()
               };
             } else {
-              return {
-                ...prevChat,
-                messages: [...prevChat.messages, message],
-                lastMessage: new Date()
-              };
+            return {
+              ...prevChat,
+              messages: [...prevChat.messages, message],
+              lastMessage: new Date()
+            };
             }
           }
           return prevChat;
@@ -127,16 +127,16 @@ export const ChatProvider = ({ children }) => {
         
         // Only update unread count and show notification if it's NOT from the current user
         if (!isOwnNotification) {
-          setUnreadCounts(prev => ({
-            ...prev,
-            [chatId]: unreadCount
-          }));
+        setUnreadCounts(prev => ({
+          ...prev,
+          [chatId]: unreadCount
+        }));
 
           // Show notification only for messages from other users
-          toast.info(`${senderName}: ${content}`, {
-            position: "top-right",
-            autoClose: 5000
-          });
+        toast.info(`${senderName}: ${content}`, {
+          position: "top-right",
+          autoClose: 5000
+        });
         }
       });
 
@@ -154,7 +154,7 @@ export const ChatProvider = ({ children }) => {
         if (error.message === 'Not authorized for this chat') {
           toast.error('You are not authorized to send messages in this chat. Please check your permissions.');
         } else {
-          toast.error(error.message || 'Chat connection error');
+        toast.error(error.message || 'Chat connection error');
         }
       });
 
