@@ -1,6 +1,6 @@
 # Prescripto
 
-Prescripto is a full‑stack healthcare appointment system that lets patients book doctor appointments, chat with doctors, and manage prescriptions and reviews. It includes role‑based dashboards for patients, doctors, and admins.
+Appointement system is a full‑stack healthcare appointment system that lets patients book doctor appointments, chat with doctors, and manage prescriptions and reviews. It includes role‑based dashboards for patients, doctors, and admins.
 
 ## Features
 
